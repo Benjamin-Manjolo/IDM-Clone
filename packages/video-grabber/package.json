@@ -1,1 +1,10 @@
-\n
+{
+  "name": "@idm/video-grabber",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@idm/shared": "workspace:*"
+  }
+}

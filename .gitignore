@@ -1,1 +1,15 @@
-\n
+node_modules/
+dist/
+build/
+out/
+.cache/
+*.log
+.env.local
+.env.*.local
+*.tsbuildinfo
+coverage/
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+release/

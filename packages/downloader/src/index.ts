@@ -1,1 +1,12 @@
-\n
+export { DownloadManager } from './core/downloadManager';
+export { SegmentManager } from './core/segmentManager';
+export { ChunkAllocator } from './core/chunkAllocator';
+export { ProgressTracker } from './core/progressTracker';
+export { ResumeManager } from './core/resumeManager';
+export { HttpProtocol } from './protocols/http';
+export { FtpProtocol } from './protocols/ftp';
+export { parseMagnetUri, isMagnetUri } from './protocols/magnet';
+export { withRetry, sleep } from './utils/retry';
+export { SpeedLimiter } from './utils/speedLimiter';
+export { computeChecksum, verifyChecksum } from './utils/checksum';
+export { preallocate, resolveConflict, ensureDir } from './utils/fileWriter';

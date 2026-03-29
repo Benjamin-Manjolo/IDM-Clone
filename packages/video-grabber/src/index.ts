@@ -1,1 +1,10 @@
-\n
+export { parseM3U8 } from './hls/m3u8Parser';
+export { downloadHlsSegment } from './hls/segmentDownloader';
+export { mergeHlsSegments, getTempSegmentPath } from './hls/hlsMerger';
+export { parseMPD, getBestRepresentation, buildSegmentUrls } from './dash/mpdParser';
+export { DashDownloader } from './dash/dashDownloader';
+export { MediaDetector } from './detector/mediaDetector';
+export { selectHlsVariant, selectDashRepresentation, describeQuality } from './detector/qualityExtractor';
+export type { HlsPlaylist, HlsVariant, HlsSegment } from './hls/m3u8Parser';
+export type { DashManifest, DashAdaptationSet, DashRepresentation } from './dash/mpdParser';
+export type { DetectedMedia, MediaType, QualityPreference } from './detector/mediaDetector';

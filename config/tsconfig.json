@@ -1,1 +1,28 @@
-\n
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@idm/shared": ["packages/shared/src/index.ts"],
+      "@idm/downloader": ["packages/downloader/src/index.ts"],
+      "@idm/scheduler": ["packages/scheduler/src/index.ts"],
+      "@idm/video-grabber": ["packages/video-grabber/src/index.ts"],
+      "@idm/site-grabber": ["packages/site-grabber/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build", "out"]
+}

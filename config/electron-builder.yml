@@ -1,1 +1,52 @@
-\n
+appId: com.idmclone.app
+productName: IDM Clone
+copyright: Copyright © 2024
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - package.json
+
+extraResources:
+  - from: assets/icons
+    to: icons
+  - from: assets/sounds
+    to: sounds
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, ia32]
+  icon: assets/icons/icon.ico
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: assets/icons/icon.icns
+  category: public.app-category.utilities
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  icon: assets/icons
+  category: Network
+
+publish:
+  provider: github
+  releaseType: release
