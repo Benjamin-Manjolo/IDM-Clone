@@ -2,55 +2,134 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { to: '/',          icon: '⬇',  label: 'Downloads' },
-  { to: '/queue',     icon: '📋', label: 'Queue' },
-  { to: '/scheduler', icon: '🕐', label: 'Scheduler' },
-  { to: '/grabber',   icon: '🕸', label: 'Grabber' },
-  { to: '/categories',icon: '🗂', label: 'Categories' },
-  { to: '/settings',  icon: '⚙',  label: 'Settings', bottom: true },
+  { to: '/',           icon: '⬇', label: 'Downloads' },
+  { to: '/queue',      icon: '📋', label: 'Queue' },
+  { to: '/scheduler',  icon: '🕐', label: 'Scheduler' },
+  { to: '/grabber',    icon: '🕸', label: 'Grabber' },
+  { to: '/categories', icon: '🗂', label: 'Categories' },
 ];
 
-export const Sidebar: React.FC = () => {
-  const top = NAV_ITEMS.filter(n => !n.bottom);
-  const bottom = NAV_ITEMS.filter(n => n.bottom);
+const CATEGORY_ITEMS = [
+  { to: '/?cat=video',      icon: '🎬', label: 'Video' },
+  { to: '/?cat=audio',      icon: '🎵', label: 'Audio' },
+  { to: '/?cat=documents',  icon: '📄', label: 'Documents' },
+  { to: '/?cat=compressed', icon: '🗜', label: 'Archives' },
+  { to: '/?cat=programs',   icon: '⚙', label: 'Programs' },
+];
 
-  const renderLink = (item: typeof NAV_ITEMS[0]) => (
-    <NavLink
-      key={item.to}
-      to={item.to}
-      end={item.to === '/'}
-      className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group
-         ${isActive
-           ? 'bg-blue-600 text-white'
-           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-         }`
-      }
-    >
-      <span className="text-base w-5 text-center">{item.icon}</span>
-      <span>{item.label}</span>
-    </NavLink>
-  );
-
-  return (
-    <div className="w-48 flex-shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full">
-      {/* Logo */}
-      <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⚡</span>
-          <span className="font-bold text-gray-900 dark:text-white text-sm">IDM Clone</span>
-        </div>
-      </div>
-
-      {/* Top nav */}
-      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-        {top.map(renderLink)}
-      </nav>
-
-      {/* Bottom nav */}
-      <div className="p-2 border-t border-gray-200 dark:border-gray-700 space-y-0.5">
-        {bottom.map(renderLink)}
-      </div>
-    </div>
-  );
+const styles: Record<string, React.CSSProperties> = {
+  sidebar: {
+    width: 200,
+    flexShrink: 0,
+    background: 'var(--bg-panel)',
+    borderRight: '1px solid var(--border)',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    userSelect: 'none',
+  },
+  logo: {
+    padding: '14px 16px 12px',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontFamily: 'var(--display)',
+    fontWeight: 700,
+    fontSize: 17,
+    letterSpacing: 1,
+    color: 'var(--accent)',
+  },
+  section: { padding: '10px 6px 4px' },
+  sectionLabel: {
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase' as const,
+    color: 'var(--text-muted)',
+    padding: '0 8px',
+    marginBottom: 4,
+  },
+  bottom: {
+    marginTop: 'auto',
+    padding: '8px 6px',
+    borderTop: '1px solid var(--border)',
+  },
 };
+
+const linkBase: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '7px 10px',
+  borderRadius: 5,
+  cursor: 'pointer',
+  fontSize: 13,
+  color: 'var(--text-secondary)',
+  textDecoration: 'none',
+  marginBottom: 1,
+  transition: 'all 0.15s',
+};
+
+export const Sidebar: React.FC = () => (
+  <div style={styles.sidebar}>
+    <div style={styles.logo}>
+      <span style={{ fontSize: 20 }}>⚡</span>
+      IDM CLONE
+    </div>
+
+    <div style={styles.section}>
+      <div style={styles.sectionLabel}>Navigate</div>
+      {NAV_ITEMS.map(item => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === '/'}
+          style={({ isActive }) => ({
+            ...linkBase,
+            background: isActive ? 'var(--accent-glow)' : 'transparent',
+            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+            border: isActive ? '1px solid rgba(14,165,233,0.2)' : '1px solid transparent',
+          })}
+        >
+          <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+
+    <div style={{ ...styles.section, marginTop: 8 }}>
+      <div style={styles.sectionLabel}>Categories</div>
+      {CATEGORY_ITEMS.map(item => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          style={({ isActive }) => ({
+            ...linkBase,
+            background: isActive ? 'var(--accent-glow)' : 'transparent',
+            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+            border: isActive ? '1px solid rgba(14,165,233,0.2)' : '1px solid transparent',
+          })}
+        >
+          <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+
+    <div style={styles.bottom}>
+      <NavLink
+        to="/settings"
+        style={({ isActive }) => ({
+          ...linkBase,
+          background: isActive ? 'var(--accent-glow)' : 'transparent',
+          color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+          border: isActive ? '1px solid rgba(14,165,233,0.2)' : '1px solid transparent',
+        })}
+      >
+        <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>⚙</span>
+        Settings
+      </NavLink>
+    </div>
+  </div>
+);

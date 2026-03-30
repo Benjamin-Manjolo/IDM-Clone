@@ -1,7 +1,5 @@
 import React, { memo, useCallback } from 'react';
 import type { DownloadItem as DLItem } from '@idm/shared';
-import { ProgressBar } from './ProgressBar';
-import { SpeedIndicator } from './SpeedIndicator';
 import { formatBytes, formatTime, formatPercent, formatShortDate, truncate } from '../utils/format';
 import { getFileIcon } from '../utils/file';
 
@@ -17,113 +15,134 @@ interface DownloadItemProps {
   onOpenDir: (id: string) => void;
 }
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  downloading: { label: 'Downloading', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  queued:      { label: 'Queued',      cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
-  paused:      { label: 'Paused',      cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
-  completed:   { label: 'Done',        cls: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  error:       { label: 'Error',       cls: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
-  merging:     { label: 'Merging',     cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' },
-  checking:    { label: 'Checking',    cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  downloading: { label: 'Downloading', color: 'var(--accent)',  bg: 'rgba(14,165,233,0.12)',  border: 'rgba(14,165,233,0.3)' },
+  queued:      { label: 'Queued',      color: 'var(--purple)', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)' },
+  paused:      { label: 'Paused',      color: 'var(--yellow)', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' },
+  completed:   { label: 'Complete',    color: 'var(--green)',  bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)' },
+  error:       { label: 'Error',       color: 'var(--red)',    bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.3)' },
+  merging:     { label: 'Merging',     color: 'var(--accent)', bg: 'rgba(14,165,233,0.12)', border: 'rgba(14,165,233,0.3)' },
+  checking:    { label: 'Checking',    color: 'var(--yellow)', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' },
 };
+
+const GRID = '32px 1fr 90px 110px 80px 120px 90px 100px';
 
 export const DownloadItem: React.FC<DownloadItemProps> = memo(({
   item, selected, onSelect, onPause, onResume, onCancel, onRemove, onOpen, onOpenDir,
 }) => {
-  const percent = formatPercent(item.downloadedSize, item.totalSize);
-  const badge = STATUS_BADGE[item.status] ?? STATUS_BADGE['queued']!;
+  const pct = formatPercent(item.downloadedSize, item.totalSize);
+  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG['queued']!;
   const icon = getFileIcon(item.filename);
   const isActive = item.status === 'downloading';
-  const isDone = item.status === 'completed';
-  const isError = item.status === 'error';
+  const isDone   = item.status === 'completed';
+  const isError  = item.status === 'error';
   const isPaused = item.status === 'paused';
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    onSelect(item.id, e.ctrlKey || e.metaKey || e.shiftKey);
-  }, [item.id, onSelect]);
+  const [hovered, setHovered] = React.useState(false);
+
+  const row: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: GRID,
+    alignItems: 'center',
+    padding: '0 12px',
+    height: 38,
+    borderBottom: '1px solid var(--border)',
+    cursor: 'pointer',
+    background: selected ? 'var(--bg-selected)' : hovered ? 'var(--bg-hover)' : 'transparent',
+    position: 'relative',
+    transition: 'background 0.1s',
+    animation: 'fadeIn 0.2s ease',
+  };
 
   return (
     <div
-      onClick={handleClick}
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800
-        cursor-pointer select-none transition-colors
-        ${selected
-          ? 'bg-blue-50 dark:bg-blue-950/40'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-        }`}
+      style={row}
+      onClick={e => onSelect(item.id, e.ctrlKey || e.metaKey || e.shiftKey)}
+      onDoubleClick={() => isDone && onOpen(item.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* File icon */}
-      <div className="text-2xl w-8 flex-shrink-0 text-center">{icon}</div>
+      {/* Selection accent bar */}
+      {selected && (
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: 'var(--accent)', borderRadius: '0 1px 1px 0' }} />
+      )}
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        {/* Filename + badge */}
-        <div className="flex items-center gap-2 mb-1">
-          <span
-            className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate"
-            title={item.filename}
-          >
-            {truncate(item.filename, 60)}
-          </span>
-          <span className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badge.cls}`}>
-            {badge.label}
-          </span>
-        </div>
+      {/* Icon */}
+      <span style={{ fontSize: 18 }}>{icon}</span>
 
-        {/* Progress bar */}
-        {!isDone && item.totalSize > 0 && (
-          <ProgressBar percent={percent} status={item.status} height={3} />
-        )}
+      {/* Filename */}
+      <span style={{
+        fontSize: 12.5, fontWeight: 500,
+        color: isError ? 'var(--red)' : 'var(--text-primary)',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        paddingRight: 8,
+      }} title={item.filename}>
+        {truncate(item.filename, 55)}
+      </span>
 
-        {/* Stats row */}
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-          <span>{formatBytes(item.downloadedSize)}{item.totalSize > 0 ? ` / ${formatBytes(item.totalSize)}` : ''}</span>
-          {isActive && <SpeedIndicator bps={item.speed} />}
-          {isActive && item.timeRemaining > 0 && <span>{formatTime(item.timeRemaining)} left</span>}
-          {isDone && item.totalSize > 0 && <span className="text-green-500">✓ {formatBytes(item.totalSize)}</span>}
-          {isError && <span className="text-red-500 truncate">{item.errorMessage ?? 'Download failed'}</span>}
-          <span className="ml-auto">{formatShortDate(item.createdAt)}</span>
-        </div>
+      {/* Size */}
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+        {item.totalSize > 0 ? formatBytes(item.totalSize) : '—'}
+      </span>
 
-        {/* Segment visualization */}
-        {isActive && item.segments.length > 1 && (
-          <div className="flex gap-px mt-1 h-1 rounded overflow-hidden">
-            {item.segments.map(seg => {
-              const pct = seg.end >= seg.start
-                ? formatPercent(seg.downloaded, seg.end - seg.start + 1)
-                : 0;
-              return (
-                <div key={seg.id} className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-sm overflow-hidden">
-                  <div className="h-full bg-blue-400 dark:bg-blue-500" style={{ width: `${pct}%` }} />
-                </div>
-              );
-            })}
-          </div>
+      {/* Status badge */}
+      <div>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '2px 7px', borderRadius: 3,
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.4px',
+          color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`,
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%', background: cfg.color,
+            animation: isActive ? 'pulse-dot 1.5s infinite' : 'none',
+          }} />
+          {cfg.label}
+        </span>
+      </div>
+
+      {/* Progress */}
+      <div>
+        {isActive && item.totalSize > 0 ? (
+          <>
+            <div style={{ height: 3, background: 'var(--bg-card)', borderRadius: 2, overflow: 'hidden', marginBottom: 2 }}>
+              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 2, background: 'linear-gradient(90deg, var(--accent), var(--accent2))', transition: 'width 0.4s ease' }} />
+            </div>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)' }}>{pct}%</span>
+          </>
+        ) : isDone ? (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--green)' }}>✓ 100%</span>
+        ) : (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-muted)' }}>—</span>
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        {isActive && (
-          <ActionBtn onClick={() => onPause(item.id)} title="Pause">⏸</ActionBtn>
-        )}
-        {isPaused && (
-          <ActionBtn onClick={() => onResume(item.id)} title="Resume">▶</ActionBtn>
-        )}
-        {isDone && (
-          <>
-            <ActionBtn onClick={() => onOpen(item.id)} title="Open file">📂</ActionBtn>
-            <ActionBtn onClick={() => onOpenDir(item.id)} title="Show in folder">📁</ActionBtn>
-          </>
-        )}
-        {isError && (
-          <ActionBtn onClick={() => onResume(item.id)} title="Retry">🔄</ActionBtn>
-        )}
-        {!isDone && !isError && (
-          <ActionBtn onClick={() => onCancel(item.id)} title="Cancel" danger>✕</ActionBtn>
-        )}
-        {(isDone || isError) && (
-          <ActionBtn onClick={() => onRemove(item.id)} title="Remove" danger>🗑</ActionBtn>
+      {/* Transfer rate */}
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: isActive ? 'var(--green)' : 'var(--text-muted)' }}>
+        {isActive && item.speed > 0 ? `${formatBytes(item.speed)}/s` : '—'}
+      </span>
+
+      {/* Time left */}
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+        {isActive && item.timeRemaining > 0 ? formatTime(item.timeRemaining) : '—'}
+      </span>
+
+      {/* Date / actions on hover */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        {hovered ? (
+          <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
+            {isActive  && <ActionBtn onClick={() => onPause(item.id)}  title="Pause"  icon="⏸" />}
+            {isPaused  && <ActionBtn onClick={() => onResume(item.id)} title="Resume" icon="▶" />}
+            {isError   && <ActionBtn onClick={() => onResume(item.id)} title="Retry"  icon="🔄" />}
+            {isDone    && <ActionBtn onClick={() => onOpen(item.id)}   title="Open"   icon="📂" />}
+            {isDone    && <ActionBtn onClick={() => onOpenDir(item.id)} title="Show in folder" icon="📁" />}
+            {!isDone && !isError && <ActionBtn onClick={() => onCancel(item.id)} title="Cancel" icon="✕" danger />}
+            {(isDone || isError) && <ActionBtn onClick={() => onRemove(item.id)} title="Remove" icon="🗑" danger />}
+          </div>
+        ) : (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+            {formatShortDate(item.createdAt)}
+          </span>
         )}
       </div>
     </div>
@@ -132,21 +151,24 @@ export const DownloadItem: React.FC<DownloadItemProps> = memo(({
 
 DownloadItem.displayName = 'DownloadItem';
 
-const ActionBtn: React.FC<{
-  onClick: () => void;
-  title: string;
-  danger?: boolean;
-  children: React.ReactNode;
-}> = ({ onClick, title, danger, children }) => (
-  <button
-    title={title}
-    onClick={(e) => { e.stopPropagation(); onClick(); }}
-    className={`w-7 h-7 flex items-center justify-center rounded text-sm transition-colors
-      ${danger
-        ? 'hover:bg-red-100 dark:hover:bg-red-900/40 text-gray-400 hover:text-red-500'
-        : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-      }`}
-  >
-    {children}
-  </button>
-);
+const ActionBtn: React.FC<{ onClick: () => void; title: string; icon: string; danger?: boolean }> = ({ onClick, title, icon, danger }) => {
+  const [hov, setHov] = React.useState(false);
+  return (
+    <button
+      title={title}
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 26, height: 26,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 4, border: 'none', fontSize: 13, cursor: 'pointer',
+        background: hov ? (danger ? 'rgba(239,68,68,0.15)' : 'var(--bg-card)') : 'transparent',
+        color: hov ? (danger ? 'var(--red)' : 'var(--text-primary)') : 'var(--text-muted)',
+        transition: 'all 0.15s',
+      }}
+    >
+      {icon}
+    </button>
+  );
+};

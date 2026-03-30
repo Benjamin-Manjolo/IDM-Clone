@@ -1,44 +1,73 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
-@layer base {
-  * {
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-  }
-
-  /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-  .dark ::-webkit-scrollbar-thumb { background: #374151; }
-  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-  .dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
-
-  /* Electron drag region */
-  .drag { -webkit-app-region: drag; }
-  .no-drag { -webkit-app-region: no-drag; }
+/* ── Design tokens ── */
+:root {
+  --bg-deep:       #0a0e1a;
+  --bg-dark:       #0f1525;
+  --bg-panel:      #131929;
+  --bg-card:       #1a2235;
+  --bg-hover:      #1e2840;
+  --bg-selected:   #1a2d4a;
+  --border:        #1e2d45;
+  --border-bright: #2a3d5a;
+  --accent:        #0ea5e9;
+  --accent-dim:    #0c7ab5;
+  --accent-glow:   rgba(14,165,233,0.15);
+  --accent2:       #22d3ee;
+  --green:         #10b981;
+  --yellow:        #f59e0b;
+  --red:           #ef4444;
+  --purple:        #8b5cf6;
+  --text-primary:  #e2e8f0;
+  --text-secondary:#7a92b5;
+  --text-muted:    #4a6080;
+  --mono:          'JetBrains Mono', monospace;
+  --sans:          'IBM Plex Sans', sans-serif;
+  --display:       'Rajdhani', sans-serif;
 }
 
-@layer utilities {
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .animate-shimmer {
-    animation: shimmer 1.5s infinite;
-  }
-
-  /* Prevent text selection in UI elements */
-  .select-none { user-select: none; }
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+/* ── Animations ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Electron drag region ── */
+.drag    { -webkit-app-region: drag; }
+.no-drag { -webkit-app-region: no-drag; }
+
+/* ── Utility ── */
+.select-none { user-select: none; }

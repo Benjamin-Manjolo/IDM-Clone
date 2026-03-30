@@ -13,25 +13,35 @@ const AppInner: React.FC = () => {
   const navigate = useNavigate();
   const { settings } = useSettingsStore();
 
-  // Apply theme
+  // Always use dark theme (IDM style)
   useEffect(() => {
-    const root = document.documentElement;
-    const theme = settings?.theme ?? 'system';
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
-    root.classList.toggle('dark', useDark);
-  }, [settings?.theme]);
+    document.documentElement.classList.add('dark');
+    document.body.style.background = 'var(--bg-deep, #0a0e1a)';
+  }, []);
 
-  // Listen for menu navigation events from main process
   useEffect(() => {
-    const off = window.idm.on('ui:nav', (path: string) => navigate(path));
+    const off = window.idm?.on('ui:nav', (path: string) => navigate(path));
     return off;
   }, [navigate]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      overflow: 'hidden',
+      background: 'var(--bg-deep)',
+      color: 'var(--text-primary)',
+      fontFamily: 'var(--sans)',
+    }}>
+      {/* Title bar drag region for Electron */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, height: 0,
+        WebkitAppRegion: 'drag' as any,
+        zIndex: 9999, pointerEvents: 'none',
+      }} />
+
       <Sidebar />
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="/"           element={<Home />} />
           <Route path="/queue"      element={<Queue />} />

@@ -12,196 +12,255 @@ interface ToolbarProps {
   onSearch: (q: string) => void;
 }
 
+const tb: React.CSSProperties = {
+  height: 48,
+  background: 'var(--bg-dark)',
+  borderBottom: '1px solid var(--border)',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 10px',
+  gap: 2,
+  flexShrink: 0,
+  userSelect: 'none',
+};
+
+const btnBase: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 1,
+  padding: '4px 12px',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
+  borderRadius: 4,
+  fontSize: 10,
+  fontFamily: 'var(--sans)',
+  fontWeight: 500,
+  minWidth: 52,
+  transition: 'all 0.15s',
+};
+
+const TbBtn: React.FC<{
+  icon: string; label: string; onClick: () => void;
+  primary?: boolean; danger?: boolean; disabled?: boolean;
+}> = ({ icon, label, onClick, primary, danger, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    style={{
+      ...btnBase,
+      color: disabled ? 'var(--text-muted)' : primary ? 'var(--accent)' : danger ? 'var(--red)' : 'var(--text-secondary)',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1,
+    }}
+    onMouseEnter={e => {
+      if (!disabled) (e.currentTarget as HTMLElement).style.background = primary ? 'var(--accent-glow)' : 'var(--bg-hover)';
+    }}
+    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+  >
+    <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
+    {label}
+  </button>
+);
+
+const Sep = () => (
+  <div style={{ width: 1, height: 30, background: 'var(--border)', margin: '0 4px' }} />
+);
+
 export const Toolbar: React.FC<ToolbarProps> = ({
   stats, onAdd, onPauseAll, onResumeAll, searchQuery, onSearch,
 }) => {
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  // Listen for menu/tray events
   useEffect(() => {
-    const off1 = window.idm.on('ui:add-url',    () => setShowAddModal(true));
-    const off2 = window.idm.on('ui:pause-all',  onPauseAll);
-    const off3 = window.idm.on('ui:resume-all', onResumeAll);
-    return () => { off1(); off2(); off3(); };
+    const off1 = window.idm?.on('ui:add-url', () => setShowModal(true));
+    const off2 = window.idm?.on('ui:pause-all', onPauseAll);
+    const off3 = window.idm?.on('ui:resume-all', onResumeAll);
+    return () => { off1?.(); off2?.(); off3?.(); };
   }, []);
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
-        {/* Add button */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
-        >
-          <span className="text-base leading-none">+</span>
-          Add URL
-        </button>
+      <div style={tb}>
+        <TbBtn icon="⊕" label="Add URL" onClick={() => setShowModal(true)} primary />
+        <TbBtn icon="⊞" label="Add Batch" onClick={() => {}} />
+        <Sep />
+        <TbBtn icon="▶" label="Resume" onClick={onResumeAll} />
+        <TbBtn icon="⏹" label="Stop All" onClick={onPauseAll} disabled={stats.active === 0} />
+        <TbBtn icon="🗑" label="Delete" onClick={() => {}} danger />
+        <Sep />
+        <TbBtn icon="🕐" label="Scheduler" onClick={() => {}} />
+        <TbBtn icon="⚙" label="Options" onClick={() => {}} />
 
-        {/* Pause / Resume all */}
-        <button
-          onClick={onPauseAll}
-          disabled={stats.active === 0}
-          className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm transition-colors disabled:opacity-40"
-          title="Pause all"
-        >
-          ⏸ Pause All
-        </button>
-        <button
-          onClick={onResumeAll}
-          className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm transition-colors"
-          title="Resume all"
-        >
-          ▶ Resume All
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
-
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search downloads..."
-          value={searchQuery}
-          onChange={e => onSearch(e.target.value)}
-          className="flex-1 max-w-xs px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-
-        {/* Stats */}
-        <div className="ml-auto flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        {/* search + live stats */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input
+            type="text"
+            placeholder="🔍  Search downloads..."
+            value={searchQuery}
+            onChange={e => onSearch(e.target.value)}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-bright)',
+              borderRadius: 5,
+              padding: '5px 10px',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              width: 190,
+              fontFamily: 'var(--sans)',
+              outline: 'none',
+            }}
+            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+            onBlur={e => (e.target.style.borderColor = 'var(--border-bright)')}
+          />
           {stats.active > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', animation: 'pulse-dot 1.5s infinite' }} />
               {stats.active} active · {formatSpeed(stats.speed)}
             </span>
           )}
-          <span>{stats.total} total · {stats.completed} done</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+            {stats.total} total · {stats.completed} done
+          </span>
         </div>
       </div>
 
-      {showAddModal && (
+      {showModal && (
         <AddUrlModal
-          onAdd={(opts) => { onAdd(opts); setShowAddModal(false); }}
-          onClose={() => setShowAddModal(false)}
+          onAdd={opts => { onAdd(opts); setShowModal(false); }}
+          onClose={() => setShowModal(false)}
         />
       )}
     </>
   );
 };
 
-// ── Add URL modal ──────────────────────────────────────────────────────────────
-interface AddUrlModalProps {
-  onAdd: (opts: AddDownloadOptions) => void;
-  onClose: () => void;
-}
-
-const AddUrlModal: React.FC<AddUrlModalProps> = ({ onAdd, onClose }) => {
+/* ── ADD URL MODAL ── */
+const AddUrlModal: React.FC<{ onAdd: (opts: AddDownloadOptions) => void; onClose: () => void }> = ({ onAdd, onClose }) => {
   const [url, setUrl] = useState('');
   const [savePath, setSavePath] = useState('');
   const [maxConn, setMaxConn] = useState(8);
-  const [advanced, setAdvanced] = useState(false);
+  const [adv, setAdv] = useState(false);
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
-    // Try to pre-fill from clipboard
-    navigator.clipboard.readText().then(text => {
-      if (isValidUrl(text.trim())) setUrl(text.trim());
+    navigator.clipboard.readText().then(t => {
+      if (isValidUrl(t.trim())) setUrl(t.trim());
     }).catch(() => {});
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isValidUrl(url.trim())) return;
-    onAdd({ url: url.trim(), savePath: savePath || undefined, maxConnections: maxConn });
-  };
+  const valid = isValidUrl(url.trim());
 
-  const browseSavePath = async () => {
-    const dir = await window.idm.system.openDir();
-    if (dir) setSavePath(dir);
+  const overlay: React.CSSProperties = {
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,0.75)',
+    backdropFilter: 'blur(4px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 200,
+    animation: 'fadeIn 0.2s ease',
+  };
+  const modal: React.CSSProperties = {
+    background: 'var(--bg-panel)',
+    border: '1px solid var(--border-bright)',
+    borderRadius: 8,
+    width: 520,
+    boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+  };
+  const header: React.CSSProperties = {
+    padding: '14px 18px',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  };
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'var(--bg-deep)',
+    border: '1px solid var(--border-bright)',
+    borderRadius: 5,
+    padding: '9px 12px',
+    color: 'var(--text-primary)',
+    fontSize: 13,
+    fontFamily: 'var(--mono)',
+    outline: 'none',
+    marginBottom: 14,
+  };
+  const label: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
+    textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 6, display: 'block',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Add Download</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg">✕</button>
+    <div style={overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={modal}>
+        <div style={header}>
+          <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>
+            ⊕ Add New Download
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL</label>
-            <input
-              ref={inputRef}
-              type="text"
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              placeholder="https://, ftp://, or magnet:..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {url && !isValidUrl(url) && (
-              <p className="text-xs text-red-500 mt-1">Please enter a valid URL</p>
-            )}
-          </div>
+        <div style={{ padding: 18 }}>
+          <label style={label}>Enter address to download</label>
+          <input
+            ref={inputRef}
+            style={inputStyle}
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && valid && onAdd({ url: url.trim(), savePath: savePath || undefined, maxConnections: maxConn })}
+            placeholder="https://  ·  ftp://  ·  magnet:..."
+            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+            onBlur={e => (e.target.style.borderColor = 'var(--border-bright)')}
+          />
 
-          {/* Advanced toggle */}
+          {/* adv toggle */}
           <button
-            type="button"
-            onClick={() => setAdvanced(a => !a)}
-            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium"
+            onClick={() => setAdv(a => !a)}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}
           >
-            {advanced ? '▲ Hide' : '▼ Show'} advanced options
+            {adv ? '▲' : '▼'} Advanced options
           </button>
 
-          {advanced && (
-            <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              {/* Save path */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Save to folder</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={savePath}
-                    onChange={e => setSavePath(e.target.value)}
-                    placeholder="Default downloads folder"
-                    className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={browseSavePath}
-                    className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >Browse</button>
+          {adv && (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 5, padding: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={label}>Save to folder</label>
+                  <input style={{ ...inputStyle, marginBottom: 0, fontSize: 12 }} value={savePath} onChange={e => setSavePath(e.target.value)} placeholder="~/Downloads" />
                 </div>
-              </div>
-
-              {/* Connections */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Parallel connections: {maxConn}
-                </label>
-                <input
-                  type="range" min={1} max={32} value={maxConn}
-                  onChange={e => setMaxConn(parseInt(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
+                <div>
+                  <label style={label}>Max connections: {maxConn}</label>
+                  <input type="range" min={1} max={32} value={maxConn}
+                    onChange={e => setMaxConn(+e.target.value)}
+                    style={{ width: '100%', accentColor: 'var(--accent)', marginTop: 8 }} />
+                </div>
               </div>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2 justify-end pt-1">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={!isValidUrl(url.trim())}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg font-medium transition-colors">
-              Download
-            </button>
+          <label style={label}>Use Authorization</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <input style={{ ...inputStyle, marginBottom: 0 }} value={login} onChange={e => setLogin(e.target.value)} placeholder="Login" />
+            <input style={{ ...inputStyle, marginBottom: 0 }} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
           </div>
-        </form>
+        </div>
+
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)', fontFamily: 'var(--sans)' }}>
+            Cancel
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onAdd({ url: url.trim(), savePath: savePath || undefined, maxConnections: maxConn })}
+            style={{ padding: '8px 18px', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: valid ? 'pointer' : 'not-allowed', background: valid ? 'var(--accent)' : 'var(--bg-card)', color: '#fff', border: 'none', fontFamily: 'var(--sans)', opacity: valid ? 1 : 0.5, boxShadow: valid ? '0 0 20px rgba(14,165,233,0.3)' : 'none' }}
+          >
+            Start Download
+          </button>
+        </div>
       </div>
     </div>
   );
