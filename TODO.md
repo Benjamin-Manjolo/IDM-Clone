@@ -1,27 +1,19 @@
-## TODO - Fix IDM Clone TypeScript Monorepo Build Issues
+# Fix @idm/downloader Module Resolution in Electron Packaged App
 
-**Status: In Progress**
+## [x] 0. Plan approved by user
 
-### Step 1: ✅ Create TODO.md 
-### Step 2: ✅ Read and verify relevant tsconfig files 
-### Step 3: ✅ Edit apps/desktop/tsconfig.electron.json - Fix paths to dist/
-- Changed paths from src/index.ts → dist/index.d.ts
-- Fixed JSON formatting with proper indentation and commas
+## [x] 1. No new deps needed (uses existing vite)
 
-### Step 4: ⏳ Edit package tsconfigs - Add "composite": true (Next)
-- packages/shared/tsconfig.json
-- packages/downloader/tsconfig.json  
-- packages/scheduler/tsconfig.json
-- packages/video-grabber/tsconfig.json
-- packages/site-grabber/tsconfig.json
+## [x] 2. Create Vite config for main process
+   - Created apps/desktop/electron/vite.config.main.ts
 
-### Step 5: Refresh pnpm workspace
-- `pnpm install`
+## [x] 3. Update apps/desktop/package.json build scripts to use vite build for main
 
-### Step 6: Build packages
-- `pnpm run build:packages`
+## [x] 4. Updated electron-builder.yml
 
-### Step 7: Test desktop dev
-- `pnpm --filter @idm/desktop dev`
+## [x] 5. Bundling setup complete, ready for test (run pnpm --filter @idm/desktop package)
 
-### Step 8: ✅ Verify no TS6059 errors, clean compilation
+## [ ] 6. Test package: pnpm --filter @idm/desktop package
+
+## [ ] 7. Run packaged app to verify fix
+

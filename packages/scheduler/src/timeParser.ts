@@ -45,16 +45,22 @@ export function getNextRunTime(task: SchedulerTask, from: number = Date.now()): 
 export function formatScheduleDescription(task: SchedulerTask): string {
   switch (task.repeat) {
     case 'once':
-      return task.startTime ? `Once at ${new Date(task.startTime).toLocaleString()}` : 'Once (unscheduled)';
+      return task.startTime
+        ? `Once at ${new Date(task.startTime).toLocaleString()}`
+        : 'Once (unscheduled)';
     case 'daily':
-      return task.startTime ? `Daily at ${new Date(task.startTime).toLocaleTimeString()}` : 'Daily';
+      return task.startTime
+        ? `Daily at ${new Date(task.startTime).toLocaleTimeString()}`
+        : 'Daily';
     case 'weekly': {
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const named = (task.daysOfWeek ?? []).map((d: number) => days[d]).join(', ');
       return `Weekly on ${named}`;
     }
     case 'custom':
-      return task.intervalMs ? `Every ${Math.round(task.intervalMs / 60000)} minutes` : 'Custom interval';
+      return task.intervalMs
+        ? `Every ${Math.round(task.intervalMs / 60000)} minutes`
+        : 'Custom interval';
     default:
       return 'Unknown';
   }

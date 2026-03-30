@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { v4 as uuid } from 'uuid';
-import type { DownloadQueue, QueueState, QueueStats } from '@idm/shared';
+import type { DownloadQueue, QueueState } from '@idm/shared';
 
 export class QueueManager extends EventEmitter {
   private queues: Map<string, DownloadQueue> = new Map();

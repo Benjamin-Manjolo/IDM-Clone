@@ -5,8 +5,8 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    // CRITICAL: .tsx and .ts must come before .js so Vite picks up the
-    // TypeScript sources instead of the compiled CJS .js files in src/
+    // .tsx/.ts must come before .js so Vite picks up TypeScript sources
+    // instead of any compiled .js files sitting in src/
     extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
     alias: {
       '@idm/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),

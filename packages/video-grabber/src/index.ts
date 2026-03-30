@@ -7,4 +7,5 @@ export { MediaDetector } from './detector/mediaDetector';
 export { selectHlsVariant, selectDashRepresentation, describeQuality } from './detector/qualityExtractor';
 export type { HlsPlaylist, HlsVariant, HlsSegment } from './hls/m3u8Parser';
 export type { DashManifest, DashAdaptationSet, DashRepresentation } from './dash/mpdParser';
-export type { DetectedMedia, MediaType, QualityPreference } from './detector/mediaDetector';
+export type { DetectedMedia, MediaType } from './detector/mediaDetector';
+export type { QualityPreference } from './detector/qualityExtractor';

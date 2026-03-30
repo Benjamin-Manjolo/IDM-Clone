@@ -5,11 +5,9 @@
   "main": "dist/electron/electron/main.js",
   "scripts": {
     "dev": "concurrently \"vite --config ../../config/vite.config.ts\" \"tsc -p tsconfig.electron.json && electron dist/electron/electron/main.js\"",
-    "dev:watch": "concurrently \"vite --config ../../config/vite.config.ts\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && electron dist/electron/electron/main.js\"",
     "build:renderer": "vite build --config ../../config/vite.config.ts",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "pnpm build:renderer && pnpm build:electron",
-    "package": "pnpm build && electron-builder --config ../../config/electron-builder.yml",
     "preview": "vite preview --config ../../config/vite.config.ts"
   },
   "dependencies": {

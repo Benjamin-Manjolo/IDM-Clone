@@ -1,68 +1,56 @@
-# IDM Clone - Fix Instructions
+# IDM Clone — Fix Package
 
-## Files to copy into your project
+## What to do
 
-Copy each file from this zip into your project at the matching path.
-All existing files at those paths should be REPLACED.
+1. Extract this zip and copy every file into your project at the matching path, replacing existing files.
+2. Run:
 
-## After copying files, run:
-
-```bash
-# 1. Build shared package first (others depend on it)
-pnpm --filter @idm/shared build
-
-# 2. Build remaining packages
-pnpm --filter @idm/downloader build
-pnpm --filter @idm/scheduler build
-pnpm --filter @idm/video-grabber build
-pnpm --filter @idm/site-grabber build
-
-# 3. Start dev
-pnpm --filter @idm/desktop dev
-```
-
-Or use the new root script:
 ```bash
 pnpm dev
 ```
 
-## What was fixed
+That's it. The root `dev` script now builds all packages in the correct order before starting Electron + Vite.
 
-### 1. All packages/*/package.json
-- Changed `"main"` from `./src/index.ts` to `./dist/index.js`
-- Added `"types"` pointing to `./dist/index.d.ts`
-- Added `"build"` script using `tsc -p tsconfig.json`
+---
 
-### 2. All packages/*/tsconfig.json (NEW FILES)
-- Each package now has its own tsconfig
-- `"module": "CommonJS"` so Node.js (Electron) can require() the output
-- `"paths"` mapping `@idm/shared` to the shared source for compilation
+## Files changed and why
 
-### 3. packages/downloader/src/core/downloadManager.ts
-- Fixed TS2367: status comparison - read status from map after async operations
-- Fixed TS18046: cast `exts` to `string[]` in detectCategory()
+### `packages/*/tsconfig.json` (all packages)
+**Root cause of the `TS6059 not under rootDir` error:**  
+Previously, `paths` pointed to `../shared/src/index.ts` — a raw `.ts` source file. TypeScript pulled that file (and all its transitive imports) into the compilation, which violated `rootDir: ./src`.
 
-### 4. packages/scheduler/src/queueManager.ts
-- Fixed TS7006: added explicit `: string` type to `id` parameter in filter callback
+**Fix:** Point `paths` to `../shared/dist/index.d.ts` instead. TypeScript uses `.d.ts` files as ambient type declarations — it reads them for type info but does **not** treat them as source files to compile, so `rootDir` is never violated.
 
-### 5. packages/scheduler/src/timeParser.ts
-- Fixed TS7006: added explicit `: number` type to `d` parameter in map callback
+This requires `@idm/shared` to be built first (so `dist/index.d.ts` exists), which is guaranteed by the ordered `build:packages` script.
 
-### 6. config/vite.config.ts
-- Added `extensions: ['.tsx', '.ts', '.jsx', '.js', '.json']`
-- This ensures Vite picks up .tsx SOURCE files instead of compiled .js files in src/
+### `packages/*/package.json` (all packages)
+- `"main"` changed from `./src/index.ts` → `./dist/index.js`  
+- `"types"` added pointing to `./dist/index.d.ts`  
+- `"build"` script added: `tsc -p tsconfig.json`
 
-### 7. apps/desktop/tsconfig.electron.json
-- Fixed paths to correctly point to package sources for compilation
-- Set `"outDir": "dist/electron"` and `"rootDir": "."`
+At runtime, Node/Electron resolves `require('@idm/shared')` via the pnpm workspace symlink → `packages/shared` → `main: ./dist/index.js`. This is what makes Electron actually load the compiled JS instead of failing on raw TypeScript.
 
-### 8. apps/desktop/package.json
-- Fixed dev script path to compiled electron main
+### `packages/downloader/src/core/downloadManager.ts`
+- **TS2367** (`status` comparison): After an `await`, the item's status may have been changed externally (e.g. paused). The fix re-reads status from the Map instead of using the stale local reference.
+- **TS18046** (`exts` is unknown): Cast `exts as string[]` when calling `.includes()` since `Object.entries()` types values as `unknown`.
 
-### 9. apps/desktop/electron/preload.ts
-- Added UI event channels to allowed list
-- Fixed event handler typing
+### `packages/scheduler/src/queueManager.ts`
+- **TS7006**: Added explicit `: string` type annotation to the `id` parameter in the `.filter()` callback.
 
-### 10. package.json (root)
-- Added `build:packages` script that builds all packages in correct order
-- Updated `dev` to build packages first
+### `packages/scheduler/src/timeParser.ts`
+- **TS7006**: Added explicit `: number` type annotation to the `d` parameter in the `.map()` callback.
+
+### `config/vite.config.ts`
+- Added `extensions: ['.tsx', '.ts', '.jsx', '.js', '.json']`  
+  Vite's default order puts `.js` before `.tsx`. Since compiled `.js` files exist alongside `.tsx` sources in `src/`, Vite was picking up the CJS-compiled files containing JSX syntax and crashing. Putting `.tsx` first fixes this.
+
+### `apps/desktop/tsconfig.electron.json`
+- `paths` now point to `dist/index.d.ts` for all workspace packages (same fix as above).
+- `outDir` set to `dist/electron`, `rootDir` set to `.` to cover the `electron/` subfolder.
+
+### `apps/desktop/package.json`
+- `"main"` corrected to `dist/electron/electron/main.js` (matches the `outDir` + source path).
+
+### `package.json` (root)
+- Added `build:packages` script that builds workspace packages in dependency order.
+- `dev` now runs `build:packages` first so all `dist/` folders exist before Electron or Vite start.

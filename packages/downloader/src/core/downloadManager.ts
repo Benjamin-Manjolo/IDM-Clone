@@ -75,7 +75,6 @@ export class DownloadManager extends EventEmitter {
     if (!item) throw new Error(`Download ${id} not found`);
     if (item.status === 'downloading') return;
 
-    // Check concurrent limit
     const active = [...this.downloads.values()].filter(d => d.status === 'downloading').length;
     if (active >= this.maxConcurrent) {
       item.status = 'queued';
@@ -88,7 +87,6 @@ export class DownloadManager extends EventEmitter {
     this.emit('updated', item);
 
     try {
-      // Probe URL for size and resumability
       if (item.totalSize < 0) {
         const info = await this.http.probe(item.url, item.headers);
         item.totalSize = info.contentLength;
@@ -99,7 +97,6 @@ export class DownloadManager extends EventEmitter {
         }
       }
 
-      // Build or restore segments
       const resumeData = this.resumeManager.load(id);
       if (resumeData && item.resumable) {
         item.segments = resumeData.segments;
@@ -146,10 +143,9 @@ export class DownloadManager extends EventEmitter {
       this.resumeManager.delete(id);
       this.emit('completed', item);
     } catch (err: unknown) {
-      // Re-read item status from map in case it was changed (e.g. paused) during await
-      const currentItem = this.downloads.get(id);
-      const currentStatus = currentItem?.status as string | undefined;
-      if (currentStatus !== 'paused') {
+      // Read current status from map - it may have changed to 'paused' during the await
+      const latestStatus = this.downloads.get(id)?.status;
+      if (latestStatus !== 'paused') {
         item.status = 'error';
         item.errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.emit('error', { item, error: err });
@@ -157,7 +153,6 @@ export class DownloadManager extends EventEmitter {
     } finally {
       this.managers.delete(id);
       this.emit('updated', item);
-      // Start next queued item
       this.startNextQueued();
     }
   }

@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@idm/shared": ["../shared/src/index.ts"]
+      "@idm/shared": ["../shared/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*"]
