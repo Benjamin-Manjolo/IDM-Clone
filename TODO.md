@@ -1,1 +1,27 @@
-# IDM Clone Project Setup Progress\n\n## Phase 1: Project Structure (Complete)\n- [x] Batch 1: Root files (.env, .gitignore, package.json, pnpm-workspace.yaml, README.md)\n- [x] Batch 2: config/ directory and files\n- [x] Batch 3: scripts/, assets/, native/\n- [x] Batch 4: packages/shared/\n- [x] Batch 5: packages/downloader/\n- [x] Batch 6: packages/scheduler/, video-grabber/, site-grabber/\n- [x] Batch 7: apps/extension/\n- [x] Batch 8: apps/desktop/public/, package.json\n- [x] Batch 9: apps/desktop/src/ components, pages, store, hooks, utils, styles\n- [x] Batch 10: apps/desktop/src/ remaining + electron/\n\n## Phase 2: Basic Configs (Next)\n- Populate package.json roots and workspaces\n- Setup tsconfig.json, vite.config.ts, etc.\n- Add Tailwind/ESLint/Prettier configs\n\n## Phase 3: Implement Core Features\n- Electron main/preload/IPC\n- Basic React UI\n- Downloader package\n- etc.\n\nStructure fully created with all files and directories as specified. Lint errors expected for empty files.
+## TODO - Fix IDM Clone TypeScript Monorepo Build Issues
+
+**Status: In Progress**
+
+### Step 1: ✅ Create TODO.md 
+### Step 2: ✅ Read and verify relevant tsconfig files 
+### Step 3: ✅ Edit apps/desktop/tsconfig.electron.json - Fix paths to dist/
+- Changed paths from src/index.ts → dist/index.d.ts
+- Fixed JSON formatting with proper indentation and commas
+
+### Step 4: ⏳ Edit package tsconfigs - Add "composite": true (Next)
+- packages/shared/tsconfig.json
+- packages/downloader/tsconfig.json  
+- packages/scheduler/tsconfig.json
+- packages/video-grabber/tsconfig.json
+- packages/site-grabber/tsconfig.json
+
+### Step 5: Refresh pnpm workspace
+- `pnpm install`
+
+### Step 6: Build packages
+- `pnpm run build:packages`
+
+### Step 7: Test desktop dev
+- `pnpm --filter @idm/desktop dev`
+
+### Step 8: ✅ Verify no TS6059 errors, clean compilation

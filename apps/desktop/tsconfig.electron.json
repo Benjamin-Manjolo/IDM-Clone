@@ -11,11 +11,11 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@idm/shared": ["../../packages/shared/src/index.ts"],
-      "@idm/downloader": ["../../packages/downloader/src/index.ts"],
-      "@idm/scheduler": ["../../packages/scheduler/src/index.ts"],
-      "@idm/video-grabber": ["../../packages/video-grabber/src/index.ts"],
-      "@idm/site-grabber": ["../../packages/site-grabber/src/index.ts"]
+      "@idm/shared": ["../../packages/shared/dist/index.d.ts"],
+      "@idm/downloader": ["../../packages/downloader/dist/index.d.ts"],
+      "@idm/scheduler": ["../../packages/scheduler/dist/index.d.ts"],
+      "@idm/video-grabber": ["../../packages/video-grabber/dist/index.d.ts"],
+      "@idm/site-grabber": ["../../packages/site-grabber/dist/index.d.ts"]
     }
   },
   "include": ["electron/**/*"],
