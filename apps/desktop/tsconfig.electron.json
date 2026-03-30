@@ -1,7 +1,23 @@
-"scripts": {
-  "dev": "concurrently \"vite --config ../../config/vite.config.ts\" \"tsc -p tsconfig.electron.json && electron dist/electron/electron/main.js\"",
-  "dev:watch": "concurrently \"vite --config ../../config/vite.config.ts\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && electron dist/electron/electron/main.js\"",
-  "build:renderer": "vite build --config ../../config/vite.config.ts",
-  "build:electron": "tsc -p tsconfig.electron.json",
-  "build": "pnpm build:renderer && pnpm build:electron"
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "dist/electron",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@idm/shared": ["../../packages/shared/src/index.ts"],
+      "@idm/downloader": ["../../packages/downloader/src/index.ts"],
+      "@idm/scheduler": ["../../packages/scheduler/src/index.ts"],
+      "@idm/video-grabber": ["../../packages/video-grabber/src/index.ts"],
+      "@idm/site-grabber": ["../../packages/site-grabber/src/index.ts"]
+    }
+  },
+  "include": ["electron/**/*"],
+  "exclude": ["node_modules", "dist", "src"]
 }

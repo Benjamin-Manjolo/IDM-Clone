@@ -44,27 +44,28 @@ const api = {
 
   // ── System ─────────────────────────────────────────────────────────────────
   system: {
-    openDir:   ()                                    => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIR),
-    saveFile:  (defaultPath: string)                 => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_SAVE_FILE, defaultPath),
-    openPath:  (p: string)                           => ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN, p),
-    minimize:  ()                                    => ipcRenderer.send(IPC_CHANNELS.APP_MINIMIZE),
-    quit:      ()                                    => ipcRenderer.send(IPC_CHANNELS.APP_QUIT),
+    openDir:     ()                                  => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIR),
+    saveFile:    (defaultPath: string)               => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_SAVE_FILE, defaultPath),
+    openPath:    (p: string)                         => ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN, p),
+    minimize:    ()                                  => ipcRenderer.send(IPC_CHANNELS.APP_MINIMIZE),
+    quit:        ()                                  => ipcRenderer.send(IPC_CHANNELS.APP_QUIT),
     checkUpdate: ()                                  => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_CHECK),
   },
 
   // ── Event listeners ────────────────────────────────────────────────────────
-  on: (channel: string, cb: (...args: any[]) => void) => {
+  on: (channel: string, cb: (...args: unknown[]) => void): (() => void) => {
     const allowed = [
       IPC_CHANNELS.DOWNLOAD_PROGRESS,
       'download:added', 'download:updated', 'download:completed',
       'updater:checking', 'updater:available', 'updater:not-available', 'updater:error',
+      'ui:add-url', 'ui:pause-all', 'ui:resume-all', 'ui:nav', 'ui:about', 'ui:open-downloads',
     ];
     if (allowed.includes(channel)) {
-      const wrapped = (_: Electron.IpcRendererEvent, ...args: any[]) => cb(...args);
+      const wrapped = (_evt: Electron.IpcRendererEvent, ...args: unknown[]) => cb(...args);
       ipcRenderer.on(channel, wrapped);
       return () => ipcRenderer.removeListener(channel, wrapped);
     }
-    return () => {};
+    return () => { /* noop */ };
   },
 };
 

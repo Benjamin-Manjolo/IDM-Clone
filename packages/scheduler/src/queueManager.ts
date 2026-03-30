@@ -44,7 +44,7 @@ export class QueueManager extends EventEmitter {
   removeFromQueue(queueId: string, downloadId: string): void {
     const q = this.queues.get(queueId);
     if (!q) return;
-    q.downloadIds = q.downloadIds.filter(id => id !== downloadId);
+    q.downloadIds = q.downloadIds.filter((id: string) => id !== downloadId);
     this.emit('queue-updated', q);
   }
 

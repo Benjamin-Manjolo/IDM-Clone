@@ -145,10 +145,13 @@ export class DownloadManager extends EventEmitter {
       item.timeRemaining = 0;
       this.resumeManager.delete(id);
       this.emit('completed', item);
-    } catch (err: any) {
-      if (item.status !== 'paused') {
+    } catch (err: unknown) {
+      // Re-read item status from map in case it was changed (e.g. paused) during await
+      const currentItem = this.downloads.get(id);
+      const currentStatus = currentItem?.status as string | undefined;
+      if (currentStatus !== 'paused') {
         item.status = 'error';
-        item.errorMessage = err?.message ?? 'Unknown error';
+        item.errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.emit('error', { item, error: err });
       }
     } finally {
@@ -228,7 +231,7 @@ export class DownloadManager extends EventEmitter {
   private detectCategory(filename: string): DownloadCategory {
     const ext = filename.split('.').pop()?.toLowerCase() ?? '';
     for (const [cat, exts] of Object.entries(CATEGORY_EXTENSIONS)) {
-      if (exts.includes(ext)) return cat as DownloadCategory;
+      if ((exts as string[]).includes(ext)) return cat as DownloadCategory;
     }
     return 'general';
   }

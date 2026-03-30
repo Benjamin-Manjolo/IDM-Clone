@@ -1,174 +1,68 @@
-# ⚡ IDM Clone
+# IDM Clone - Fix Instructions
 
-A cross-platform download manager built with Electron, React, and TypeScript — inspired by [Internet Download Manager](https://www.internetdownloadmanager.com/). Supports HTTP/HTTPS/FTP with dynamic multi-segment acceleration, HLS/DASH video grabbing, site crawling, download scheduling, and a browser extension.
+## Files to copy into your project
 
----
+Copy each file from this zip into your project at the matching path.
+All existing files at those paths should be REPLACED.
 
-## Features
-
-| Feature | Details |
-|---|---|
-| **Dynamic segmentation** | Splits files into up to 32 parallel segments; dynamically re-splits the largest active segment when a connection becomes available — IDM's core acceleration technique |
-| **Download resume** | Persists segment state to disk; survives crashes, power loss, and network drops |
-| **Protocol support** | HTTP, HTTPS, FTP (with REST resume), Magnet URIs |
-| **Video grabbing** | Detects and downloads HLS (M3U8) and MPEG-DASH streams from any website |
-| **Site spider/grabber** | BFS crawler with configurable depth, domain scope, and file-type filters |
-| **Scheduler** | Time-based task runner — start/stop downloads at set times, shut down on completion |
-| **Download queues** | Organize downloads into named queues with per-queue concurrency and speed limits |
-| **Speed limiter** | Token-bucket rate limiting per download and globally |
-| **Browser extension** | Chrome MV3 extension intercepts downloads, detects video streams, adds context-menu items |
-| **Dark theme** | Full dark/light/system theme support |
-| **Categories** | Auto-sorts downloads by type: video, audio, documents, archives, programs, images |
-| **Antivirus hook** | Optionally launches a scanner on download completion |
-| **Auto-updater** | electron-updater integration for GitHub Releases |
-
----
-
-## Project Structure
-
-```
-idm-clone/
-├── apps/
-│   ├── desktop/              # Electron + React app
-│   │   ├── electron/         # Main process (main.ts, preload.ts, IPC handlers)
-│   │   └── src/              # React renderer (components, pages, stores, hooks)
-│   └── extension/            # Chrome MV3 browser extension
-│
-├── packages/
-│   ├── shared/               # Types, constants, IPC channel names
-│   ├── downloader/           # Core download engine
-│   │   ├── core/             # DownloadManager, SegmentManager, ChunkAllocator, ResumeManager
-│   │   ├── protocols/        # HTTP, FTP, Magnet
-│   │   ├── utils/            # Retry, SpeedLimiter, Checksum, FileWriter
-│   │   └── workers/          # download.worker.ts, merge.worker.ts
-│   ├── scheduler/            # Scheduler, QueueManager, ShutdownManager
-│   ├── video-grabber/        # HLS (M3U8), MPEG-DASH, media detection
-│   └── site-grabber/         # BFS crawler, link extractor, filters
-│
-├── config/                   # tsconfig, vite.config, tailwind, electron-builder
-├── scripts/                  # build.js, clean.js, release.js
-├── native/                   # Platform-specific helpers (Windows startup/shutdown)
-└── assets/                   # Icons, images, sounds
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js ≥ 18
-- pnpm ≥ 8
+## After copying files, run:
 
 ```bash
-npm install -g pnpm
+# 1. Build shared package first (others depend on it)
+pnpm --filter @idm/shared build
+
+# 2. Build remaining packages
+pnpm --filter @idm/downloader build
+pnpm --filter @idm/scheduler build
+pnpm --filter @idm/video-grabber build
+pnpm --filter @idm/site-grabber build
+
+# 3. Start dev
+pnpm --filter @idm/desktop dev
 ```
 
-### Install
-
-```bash
-git clone https://github.com/your-username/idm-clone.git
-cd idm-clone
-pnpm install
-```
-
-### Development
-
+Or use the new root script:
 ```bash
 pnpm dev
 ```
 
-This starts the Vite dev server (port 5173) and Electron simultaneously with hot reload.
+## What was fixed
 
-### Build
+### 1. All packages/*/package.json
+- Changed `"main"` from `./src/index.ts` to `./dist/index.js`
+- Added `"types"` pointing to `./dist/index.d.ts`
+- Added `"build"` script using `tsc -p tsconfig.json`
 
-```bash
-pnpm build          # Build everything
-node scripts/build  # Same, with detailed output
-```
+### 2. All packages/*/tsconfig.json (NEW FILES)
+- Each package now has its own tsconfig
+- `"module": "CommonJS"` so Node.js (Electron) can require() the output
+- `"paths"` mapping `@idm/shared` to the shared source for compilation
 
-### Package for distribution
+### 3. packages/downloader/src/core/downloadManager.ts
+- Fixed TS2367: status comparison - read status from map after async operations
+- Fixed TS18046: cast `exts` to `string[]` in detectCategory()
 
-```bash
-node scripts/release --win           # Windows installer
-node scripts/release --mac           # macOS DMG
-node scripts/release --linux         # AppImage + .deb
-node scripts/release --win --publish # Build + upload to GitHub Releases
-```
+### 4. packages/scheduler/src/queueManager.ts
+- Fixed TS7006: added explicit `: string` type to `id` parameter in filter callback
 
----
+### 5. packages/scheduler/src/timeParser.ts
+- Fixed TS7006: added explicit `: number` type to `d` parameter in map callback
 
-## Browser Extension
+### 6. config/vite.config.ts
+- Added `extensions: ['.tsx', '.ts', '.jsx', '.js', '.json']`
+- This ensures Vite picks up .tsx SOURCE files instead of compiled .js files in src/
 
-### Install (Development)
+### 7. apps/desktop/tsconfig.electron.json
+- Fixed paths to correctly point to package sources for compilation
+- Set `"outDir": "dist/electron"` and `"rootDir": "."`
 
-1. Run `pnpm --filter @idm/extension build`
-2. Open Chrome → `chrome://extensions`
-3. Enable **Developer mode**
-4. Click **Load unpacked** → select `apps/extension/dist/`
+### 8. apps/desktop/package.json
+- Fixed dev script path to compiled electron main
 
-The extension connects to the desktop app via WebSocket on port 9182. Start the desktop app first.
+### 9. apps/desktop/electron/preload.ts
+- Added UI event channels to allowed list
+- Fixed event handler typing
 
----
-
-## Architecture
-
-### Download Acceleration (Dynamic Segmentation)
-
-IDM's speed advantage comes from its dynamic segmentation algorithm, implemented in `packages/downloader/src/core/chunkAllocator.ts`:
-
-1. When a download starts, the file is split into N initial segments and pre-allocated on disk
-2. Each segment is downloaded in parallel via range requests (`Range: bytes=X-Y`)
-3. When a connection becomes available, the **largest remaining segment** is found and split exactly in half — the new connection starts from the midpoint
-4. This continues until `maxConnections` are all busy or all segments are too small to split
-
-This approach ensures all connections stay busy and no time is wasted negotiating new connections.
-
-### IPC Architecture
-
-```
-Browser Extension
-      │ WebSocket :9182
-      ▼
-Electron Main Process
-  DownloadManager ──── SegmentManager × N
-  Scheduler                  │ worker_threads
-  QueueManager          download.worker.ts
-      │ contextBridge
-      ▼
-React Renderer (Zustand stores)
-  useDownload → downloads.store
-  useQueue    → queue.store
-  useScheduler→ scheduler.store
-```
-
----
-
-## Configuration
-
-Copy `.env` and edit:
-
-```env
-DEFAULT_MAX_CONNECTIONS=8
-DEFAULT_CONCURRENT_DOWNLOADS=3
-DEFAULT_SPEED_LIMIT=0          # bytes/sec, 0 = unlimited
-EXTENSION_PORT=9182
-```
-
-Settings are also managed via the in-app Settings page and persisted to `userData/settings.json`.
-
----
-
-## Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit changes: `git commit -m 'feat: add my feature'`
-4. Push: `git push origin feature/my-feature`
-5. Open a Pull Request
-
----
-
-## License
-
-MIT © 2024 — IDM Clone contributors
+### 10. package.json (root)
+- Added `build:packages` script that builds all packages in correct order
+- Updated `dev` to build packages first

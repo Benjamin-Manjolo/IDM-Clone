@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter desktop dev",
+    "build:shared": "pnpm --filter @idm/shared build",
+    "build:packages": "pnpm --filter @idm/shared build && pnpm --filter @idm/downloader build && pnpm --filter @idm/scheduler build && pnpm --filter @idm/video-grabber build && pnpm --filter @idm/site-grabber build",
+    "dev": "pnpm run build:packages && pnpm --filter @idm/desktop dev",
     "build": "node scripts/build.js",
     "clean": "node scripts/clean.js",
     "release": "node scripts/release.js",

@@ -5,6 +5,9 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    // CRITICAL: .tsx and .ts must come before .js so Vite picks up the
+    // TypeScript sources instead of the compiled CJS .js files in src/
+    extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
     alias: {
       '@idm/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),
       '@idm/downloader': path.resolve(__dirname, '../packages/downloader/src/index.ts'),

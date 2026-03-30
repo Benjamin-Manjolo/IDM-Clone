@@ -11,7 +11,6 @@ export function getNextRunTime(task: SchedulerTask, from: number = Date.now()): 
     case 'daily': {
       if (!task.startTime) return null;
       const d = new Date(task.startTime);
-      const now = new Date(from);
       const next = new Date(from);
       next.setHours(d.getHours(), d.getMinutes(), d.getSeconds(), 0);
       if (next.getTime() <= from) next.setDate(next.getDate() + 1);
@@ -21,7 +20,6 @@ export function getNextRunTime(task: SchedulerTask, from: number = Date.now()): 
     case 'weekly': {
       if (!task.startTime || !task.daysOfWeek?.length) return null;
       const d = new Date(task.startTime);
-      const now = new Date(from);
       for (let offset = 0; offset <= 7; offset++) {
         const candidate = new Date(from);
         candidate.setDate(candidate.getDate() + offset);
@@ -51,8 +49,8 @@ export function formatScheduleDescription(task: SchedulerTask): string {
     case 'daily':
       return task.startTime ? `Daily at ${new Date(task.startTime).toLocaleTimeString()}` : 'Daily';
     case 'weekly': {
-      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      const named = (task.daysOfWeek ?? []).map(d => days[d]).join(', ');
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const named = (task.daysOfWeek ?? []).map((d: number) => days[d]).join(', ');
       return `Weekly on ${named}`;
     }
     case 'custom':

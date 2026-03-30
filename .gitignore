@@ -13,3 +13,5 @@ Thumbs.db
 *.tmp
 *.temp
 release/
+
+apps/desktop/src/**/*.js
