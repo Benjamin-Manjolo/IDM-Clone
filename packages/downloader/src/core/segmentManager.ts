@@ -1,10 +1,23 @@
+/**
+ * segmentManager.ts
+ *
+ * Manages multi-connection segmented downloads (the core of IDM's speed acceleration).
+ *
+ * Strategy mirrors IDM:
+ * 1. Split file into N initial chunks based on maxConnections
+ * 2. Download each chunk in parallel
+ * 3. When a connection finishes its chunk early, split the largest remaining chunk
+ *    (dynamic re-segmentation — this is IDM's key secret for speed)
+ * 4. Progress reported via callback on each chunk write
+ */
+
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
-import type { DownloadSegment } from '@idm/shared';
+import type { DownloadSegment, DownloadProgress } from '@idm/shared';
 import { HttpProtocol } from '../protocols/http';
 import { ChunkAllocator } from './chunkAllocator';
 import { ProgressTracker } from './progressTracker';
-import type { DownloadProgress } from '@idm/shared';
+import { SpeedLimiter } from '../utils/speedLimiter';
 
 export interface SegmentManagerOptions {
   downloadId: string;
@@ -15,7 +28,7 @@ export interface SegmentManagerOptions {
   maxConnections: number;
   headers?: Record<string, string>;
   cookies?: string;
-  speedLimit?: number;   // bytes/sec, 0 = unlimited
+  speedLimit?: number;      // bytes/sec, 0 = unlimited
   onProgress: (p: DownloadProgress) => void;
   onSegmentUpdate: (segments: DownloadSegment[]) => void;
 }
@@ -28,6 +41,7 @@ export class SegmentManager extends EventEmitter {
   private http = new HttpProtocol();
   private tracker: ProgressTracker;
   private allocator: ChunkAllocator;
+  private limiter: SpeedLimiter;
   private nextSegmentId: number;
   private resolveAll?: () => void;
   private rejectAll?: (e: Error) => void;
@@ -35,57 +49,108 @@ export class SegmentManager extends EventEmitter {
   constructor(private opts: SegmentManagerOptions) {
     super();
     this.segments = opts.segments.map(s => ({ ...s }));
-    this.nextSegmentId = Math.max(...this.segments.map(s => s.id)) + 1;
-    this.tracker = new ProgressTracker(opts.downloadId, opts.totalSize, opts.onProgress);
+    this.nextSegmentId =
+      this.segments.length > 0
+        ? Math.max(...this.segments.map(s => s.id)) + 1
+        : 0;
+    this.tracker = new ProgressTracker(
+      opts.downloadId,
+      opts.totalSize,
+      opts.onProgress
+    );
     this.allocator = new ChunkAllocator({
       totalSize: opts.totalSize,
       maxConnections: opts.maxConnections,
     });
+    this.limiter = new SpeedLimiter(opts.speedLimit ?? 0);
   }
 
   async start(): Promise<void> {
-    // Pre-allocate file
-    if (!fs.existsSync(this.opts.destPath) && this.opts.totalSize > 0) {
-      const fd = fs.openSync(this.opts.destPath, 'w');
-      fs.ftruncateSync(fd, this.opts.totalSize);
-      fs.closeSync(fd);
+    // Pre-allocate destination file to avoid fragmentation
+    if (this.opts.totalSize > 0 && !fs.existsSync(this.opts.destPath)) {
+      try {
+        const fd = fs.openSync(this.opts.destPath, 'w');
+        fs.ftruncateSync(fd, this.opts.totalSize);
+        fs.closeSync(fd);
+      } catch {
+        // Allocation failed (disk full?) — let segment writes create the file
+      }
     }
 
     this.tracker.start();
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.resolveAll = resolve;
       this.rejectAll = reject;
       this.pump();
     });
   }
 
+  pause(): void {
+    this.paused = true;
+    this.http.cancelAll();
+    // Mark all downloading segments back to pending so they can resume
+    for (const s of this.segments) {
+      if (s.status === 'downloading') s.status = 'pending';
+    }
+    this.opts.onSegmentUpdate([...this.segments]);
+  }
+
+  resume(): void {
+    this.paused = false;
+    this.pump();
+  }
+
+  cancel(): void {
+    this.cancelled = true;
+    this.http.cancelAll();
+    this.rejectAll?.(new Error('Download cancelled'));
+  }
+
+  getSegments(): DownloadSegment[] {
+    return this.segments.map(s => ({ ...s }));
+  }
+
+  updateSpeedLimit(bytesPerSec: number): void {
+    this.limiter.setLimit(bytesPerSec);
+  }
+
+  // ── Internal ───────────────────────────────────────────────────────────────
+
   private pump(): void {
     if (this.paused || this.cancelled) return;
 
-    // Check if all done
+    // All segments finished?
     const allDone = this.segments.every(
       s => s.status === 'completed' || s.status === 'error'
     );
+
     if (allDone && this.activeCount === 0) {
       const hasError = this.segments.some(s => s.status === 'error');
-      if (hasError) this.rejectAll?.(new Error('One or more segments failed'));
-      else this.resolveAll?.();
+      if (hasError) {
+        this.rejectAll?.(new Error('One or more segments failed to download'));
+      } else {
+        this.resolveAll?.();
+      }
       return;
     }
 
-    // Launch pending segments up to maxConnections
+    // Launch pending segments up to maxConnections limit
     while (this.activeCount < this.opts.maxConnections) {
       const pending = this.segments.find(s => s.status === 'pending');
       if (!pending) {
-        // Try dynamic split
+        // All segments are either active, done, or errored.
+        // If there's still an active download, try dynamic split.
         if (this.activeCount > 0) {
-          const newSeg = this.allocator.splitLargestSegment(this.segments, this.nextSegmentId);
+          const newSeg = this.allocator.splitLargestSegment(
+            this.segments,
+            this.nextSegmentId
+          );
           if (newSeg) {
             this.nextSegmentId++;
             this.segments.push(newSeg);
             this.opts.onSegmentUpdate([...this.segments]);
-            continue;
+            continue; // try to start this new segment
           }
         }
         break;
@@ -105,13 +170,21 @@ export class SegmentManager extends EventEmitter {
         segment,
         headers: this.opts.headers,
         cookies: this.opts.cookies,
-        onProgress: (bytes) => {
+        onProgress: async (bytes: number) => {
+          // Apply global speed limit if configured
+          if (!this.limiter.isUnlimited()) {
+            const waitMs = this.limiter.consume(bytes);
+            if (waitMs > 0) {
+              await sleep(waitMs);
+            }
+          }
           segment.downloaded += bytes;
           this.tracker.addBytes(bytes);
           this.tracker.emit(this.segments, 'downloading');
           this.opts.onSegmentUpdate([...this.segments]);
         },
       });
+
       segment.status = 'completed';
     } catch (err) {
       if (this.cancelled) return;
@@ -119,31 +192,13 @@ export class SegmentManager extends EventEmitter {
       this.emit('segment-error', { segment, error: err });
     } finally {
       this.activeCount--;
-      if (!this.cancelled) this.pump();
+      if (!this.cancelled && !this.paused) {
+        this.pump();
+      }
     }
   }
+}
 
-  pause(): void {
-    this.paused = true;
-    this.http.cancelAll();
-    // Reset downloading segments back to pending so they resume correctly
-    this.segments
-      .filter(s => s.status === 'downloading')
-      .forEach(s => { s.status = 'pending'; });
-  }
-
-  resume(): void {
-    this.paused = false;
-    this.pump();
-  }
-
-  cancel(): void {
-    this.cancelled = true;
-    this.http.cancelAll();
-    this.rejectAll?.(new Error('Download cancelled'));
-  }
-
-  getSegments(): DownloadSegment[] {
-    return [...this.segments];
-  }
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
 }

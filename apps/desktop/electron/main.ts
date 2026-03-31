@@ -9,10 +9,11 @@ import { createMenu } from './menu';
 import { setupUpdater } from './updater';
 import { DownloadManager } from '@idm/downloader';
 import { Scheduler, QueueManager } from '@idm/scheduler';
-import type { AppSettings } from '@idm/shared';
+import type { AppSettings, AddDownloadOptions } from '@idm/shared';
 import { IPC_CHANNELS } from '@idm/shared';
 import * as fs from 'fs';
 import * as os from 'os';
+
 const { WebSocketServer } = require('ws');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -63,12 +64,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   antivirus: { enabled: false },
 };
 
-// ── Globals ───────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
 let settings: AppSettings = loadSettings();
 let downloadManager: DownloadManager;
 let scheduler: Scheduler;
 let queueManager: QueueManager;
+
+// Track WebSocket clients (extension connections)
+const wsClients = new Set<any>();
 
 function loadSettings(): AppSettings {
   try {
@@ -89,10 +93,10 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
     height: 700,
-    minWidth: 800,
+    minWidth: 820,
     minHeight: 500,
     show: !settings.startMinimized,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a2e' : '#ffffff',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0e1a' : '#ffffff',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -105,7 +109,7 @@ function createWindow(): BrowserWindow {
 
   if (isDev) {
     win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
+    // win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
   }
@@ -120,6 +124,75 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+// ── Message dispatcher for extension WebSocket messages ───────────────────────
+function handleExtensionMessage(raw: string, ws: any): void {
+  let msg: { type: string; data: any };
+  try {
+    msg = JSON.parse(raw);
+  } catch {
+    return;
+  }
+
+  const { type, data } = msg;
+
+  switch (type) {
+    case 'ping':
+      ws.send(JSON.stringify({ type: 'pong', data: null }));
+      break;
+
+    case 'download:add': {
+      // Simple URL download (file or video)
+      const opts: AddDownloadOptions = {
+        url: data.url,
+        referrer: data.referrer,
+        cookies: data.cookies,
+        headers: data.headers,
+        savePath: settings.save.defaultDownloadDir,
+        maxConnections: settings.connection.maxConnections,
+        filename: data.filename,
+      };
+      downloadManager.add(opts).catch(console.error);
+      break;
+    }
+
+    case 'download:add-batch': {
+      // Multiple URLs (e.g. "download all links on page")
+      const urls: string[] = data.urls ?? [];
+      const referrer: string = data.referrer;
+      for (const url of urls.slice(0, 100)) { // limit to 100
+        downloadManager.add({
+          url,
+          referrer,
+          savePath: settings.save.defaultDownloadDir,
+          maxConnections: settings.connection.maxConnections,
+        }).catch(() => {});
+      }
+      break;
+    }
+
+    case 'app:focus': {
+      // Extension asked us to bring the app to foreground
+      mainWindow?.show();
+      mainWindow?.focus();
+      break;
+    }
+
+    default:
+      // Unknown message type — log in dev mode
+      if (isDev) console.log('[WS] Unknown message type:', type);
+  }
+}
+
+// ── Broadcast helper ──────────────────────────────────────────────────────────
+function broadcastToExtension(type: string, data: unknown): void {
+  const msg = JSON.stringify({ type, data });
+  for (const ws of wsClients) {
+    if (ws.readyState === 1 /* OPEN */) {
+      try { ws.send(msg); } catch {}
+    }
+  }
+}
+
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   fs.mkdirSync(settings.save.defaultDownloadDir, { recursive: true });
@@ -132,72 +205,63 @@ app.whenReady().then(() => {
     globalSpeedLimit: settings.connection.globalSpeedLimit,
   });
 
-
-// Add this after downloadManager is initialized, inside app.whenReady()
-const wss = new WebSocketServer({ port: 9182 });
-const wsClients = new Set<any>();
-
-wss.on('connection', (ws) => {
-  wsClients.add(ws);
-  console.log('[IDM] Extension connected');
-
-  ws.on('message', (raw) => {
-    try {
-      const { type, data } = JSON.parse(raw.toString());
-      if (type === 'download:add') {
-        downloadManager.add({
-          url: data.url,
-          referrer: data.referrer,
-          savePath: settings.save.defaultDownloadDir,
-          maxConnections: settings.connection.maxConnections,
-        });
-      }
-    } catch {}
-  });
-
-  ws.on('close', () => wsClients.delete(ws));
-  ws.on('error', () => wsClients.delete(ws));
-});
-
-// Forward download events to all connected extensions
-downloadManager.on('added', (item) => {
-  const msg = JSON.stringify({ type: 'download:added', data: item });
-  wsClients.forEach(ws => ws.readyState === 1 && ws.send(msg));
-});
-downloadManager.on('progress', (item) => {
-  const msg = JSON.stringify({ type: 'download:progress', data: item });
-  wsClients.forEach(ws => ws.readyState === 1 && ws.send(msg));
-});
-
   queueManager = new QueueManager();
   scheduler = new Scheduler();
 
+  // ── WebSocket server (bridge to extension) ───────────────────────────────
+  const wss = new WebSocketServer({ port: settings.integration.extensionPort ?? 9182 });
+
+  wss.on('connection', (ws: any) => {
+    wsClients.add(ws);
+    if (isDev) console.log('[IDM] Extension connected, clients:', wsClients.size);
+
+    ws.on('message', (raw: Buffer) => handleExtensionMessage(raw.toString(), ws));
+    ws.on('close', () => wsClients.delete(ws));
+    ws.on('error', () => wsClients.delete(ws));
+  });
+
+  wss.on('error', (err: Error) => {
+    console.error('[WS Server] Error:', err.message);
+  });
+
+  // ── Forward download events to extension ─────────────────────────────────
+  downloadManager.on('added', (item) => {
+    broadcastToExtension('download:added', item);
+    mainWindow?.webContents.send('download:added', item);
+  });
+
+  downloadManager.on('progress', (item) => {
+    broadcastToExtension('download:progress', {
+      id: item.id,
+      downloadedSize: item.downloadedSize,
+      totalSize: item.totalSize,
+      speed: item.speed,
+    });
+    mainWindow?.webContents.send(IPC_CHANNELS.DOWNLOAD_PROGRESS, item);
+  });
+
+  downloadManager.on('updated', (item) => {
+    mainWindow?.webContents.send('download:updated', item);
+  });
+
+  downloadManager.on('completed', (item) => {
+    broadcastToExtension('download:completed', { id: item.id, filename: item.filename });
+    mainWindow?.webContents.send('download:completed', item);
+  });
+
+  // ── Create main window ────────────────────────────────────────────────────
   mainWindow = createWindow();
   createTray(mainWindow, downloadManager);
   createMenu(mainWindow);
   setupUpdater(mainWindow);
 
-  // Forward download events to renderer
-  downloadManager.on('progress', (item) => {
-    mainWindow?.webContents.send(IPC_CHANNELS.DOWNLOAD_PROGRESS, item);
-  });
-  downloadManager.on('added', (item) => {
-    mainWindow?.webContents.send('download:added', item);
-  });
-  downloadManager.on('updated', (item) => {
-    mainWindow?.webContents.send('download:updated', item);
-  });
-  downloadManager.on('completed', (item) => {
-    mainWindow?.webContents.send('download:completed', item);
-  });
-
-  // IPC handlers
+  // ── IPC handlers ──────────────────────────────────────────────────────────
   setupDownloadIpc(ipcMain, downloadManager, settings);
   setupQueueIpc(ipcMain, queueManager);
   setupSchedulerIpc(ipcMain, scheduler, downloadManager);
   setupSettingsIpc(ipcMain, () => settings, (s) => { settings = s; saveSettings(s); });
 
-  // Generic handlers
+  // System dialogs
   ipcMain.handle(IPC_CHANNELS.DIALOG_OPEN_DIR, async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
     return res.filePaths[0] ?? null;
