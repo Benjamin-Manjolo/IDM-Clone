@@ -17,10 +17,10 @@ export default defineConfig({
       // These packages contain Node.js-only code (fs, child_process, net…).
       // Point them at thin browser-safe shims so the renderer never tries to
       // bundle child_process, fs, net, worker_threads, etc.
-      '@idm/scheduler':    path.resolve(ROOT, 'packages/scheduler/src/browser-shim.ts'),
-      '@idm/downloader':   path.resolve(ROOT, 'packages/downloader/src/browser-shim.ts'),
-      '@idm/video-grabber':path.resolve(ROOT, 'packages/video-grabber/src/browser-shim.ts'),
-      '@idm/site-grabber': path.resolve(ROOT, 'packages/site-grabber/src/browser-shim.ts'),
+      '@idm/scheduler':    path.resolve(ROOT, 'packages/scheduler/src/scheduler-browser-shim.ts'),
+      '@idm/downloader':   path.resolve(ROOT, 'packages/downloader/src/downloader-browser-shim.ts'),
+      '@idm/video-grabber':path.resolve(ROOT, 'packages/video-grabber/src/video-grabber-browser-shim.ts'),
+      '@idm/site-grabber': path.resolve(ROOT, 'packages/site-grabber/src/site-grabber-browser-shim.ts'),
 
       '@': path.resolve(DESKTOP, 'src'),
     },
