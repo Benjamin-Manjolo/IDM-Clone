@@ -34,7 +34,8 @@ export class DownloadManager extends EventEmitter {
   async add(options: AddDownloadOptions): Promise<DownloadItem> {
     const id = uuid();
     const filename = options.filename ?? this.extractFilename(options.url);
-    const savePath = options.savePath ?? path.join(this.opts.downloadDir, filename);
+    const saveDir = options.savePath ?? this.opts.downloadDir;
+    const savePath = path.join(saveDir, filename);
     const category = options.category ?? this.detectCategory(filename);
 
     const item: DownloadItem = {

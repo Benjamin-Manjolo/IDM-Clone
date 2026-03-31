@@ -68,7 +68,7 @@ export class HttpProtocol extends EventEmitter {
           }
 
           const offset = segment.start + segment.downloaded;
-          const fd = fs.openSync(destPath, 'r+');
+          const fd = fs.existsSync(destPath) ? fs.openSync(destPath, 'r+') : fs.openSync(destPath, 'w');
           let position = offset;
 
           res.on('data', (chunk: Buffer) => {

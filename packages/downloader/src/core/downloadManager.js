@@ -57,7 +57,8 @@ class DownloadManager extends events_1.EventEmitter {
     async add(options) {
         const id = (0, uuid_1.v4)();
         const filename = options.filename ?? this.extractFilename(options.url);
-        const savePath = options.savePath ?? path.join(this.opts.downloadDir, filename);
+        const saveDir = (_b = options.savePath) !== null && _b !== void 0 ? _b : this.opts.downloadDir;
+        const savePath = path.join(saveDir, filename);
         const category = options.category ?? this.detectCategory(filename);
         const item = {
             id,
