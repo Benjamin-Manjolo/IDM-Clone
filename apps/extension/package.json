@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev":   "vite build --watch --config vite.extension.config.ts",
-    "build": "vite build --config vite.extension.config.ts"
+    "build": "vite build --config vite.extension.config.ts && copy src\\manifest.json dist\\manifest.json && copy popup.html dist\\popup.html"
   },
   "dependencies": {
     "@idm/shared": "workspace:*",
