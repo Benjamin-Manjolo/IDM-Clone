@@ -39,3 +39,4 @@ class SpeedLimiter {
     }
 }
 exports.SpeedLimiter = SpeedLimiter;
+//# sourceMappingURL=speedLimiter.js.map

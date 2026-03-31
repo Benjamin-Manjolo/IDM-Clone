@@ -30,3 +30,4 @@ var fileWriter_1 = require("./utils/fileWriter");
 Object.defineProperty(exports, "preallocate", { enumerable: true, get: function () { return fileWriter_1.preallocate; } });
 Object.defineProperty(exports, "resolveConflict", { enumerable: true, get: function () { return fileWriter_1.resolveConflict; } });
 Object.defineProperty(exports, "ensureDir", { enumerable: true, get: function () { return fileWriter_1.ensureDir; } });
+//# sourceMappingURL=index.js.map

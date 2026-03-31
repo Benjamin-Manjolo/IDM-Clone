@@ -56,3 +56,4 @@ class ShutdownManager {
     }
 }
 exports.ShutdownManager = ShutdownManager;
+//# sourceMappingURL=shutdownManager.js.map

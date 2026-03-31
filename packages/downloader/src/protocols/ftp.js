@@ -169,3 +169,4 @@ class FtpProtocol extends events_1.EventEmitter {
     }
 }
 exports.FtpProtocol = FtpProtocol;
+//# sourceMappingURL=ftp.js.map

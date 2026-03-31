@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "./dist/electron/electron",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "composite": false,
+    "declaration": false,
+    "baseUrl": ".",
+    "paths": {
+      "@idm/shared":        ["../../packages/shared/dist/index.js"],
+      "@idm/downloader":    ["../../packages/downloader/dist/index.js"],
+      "@idm/scheduler":     ["../../packages/scheduler/dist/index.js"],
+      "@idm/video-grabber": ["../../packages/video-grabber/dist/index.js"],
+      "@idm/site-grabber":  ["../../packages/site-grabber/dist/index.js"]
+    }
+  },
+  "include": ["electron/**/*"],
+  "exclude": ["node_modules", "dist", "src"]
+}

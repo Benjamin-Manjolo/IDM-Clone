@@ -50,3 +50,4 @@ async function verifyChecksum(filePath, algorithm, expected) {
     const actual = await computeChecksum(filePath, algorithm);
     return actual.toLowerCase() === expected.toLowerCase();
 }
+//# sourceMappingURL=checksum.js.map

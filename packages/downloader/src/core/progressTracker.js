@@ -74,3 +74,4 @@ class ProgressTracker {
     }
 }
 exports.ProgressTracker = ProgressTracker;
+//# sourceMappingURL=progressTracker.js.map

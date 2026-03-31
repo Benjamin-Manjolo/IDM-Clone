@@ -83,3 +83,4 @@ function getFileSize(filePath) {
         return 0;
     }
 }
+//# sourceMappingURL=fileWriter.js.map

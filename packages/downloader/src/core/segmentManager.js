@@ -154,3 +154,4 @@ class SegmentManager extends events_1.EventEmitter {
     }
 }
 exports.SegmentManager = SegmentManager;
+//# sourceMappingURL=segmentManager.js.map

@@ -94,7 +94,6 @@ class DownloadManager extends events_1.EventEmitter {
             throw new Error(`Download ${id} not found`);
         if (item.status === 'downloading')
             return;
-        // Check concurrent limit
         const active = [...this.downloads.values()].filter(d => d.status === 'downloading').length;
         if (active >= this.maxConcurrent) {
             item.status = 'queued';
@@ -105,7 +104,6 @@ class DownloadManager extends events_1.EventEmitter {
         item.startedAt = Date.now();
         this.emit('updated', item);
         try {
-            // Probe URL for size and resumability
             if (item.totalSize < 0) {
                 const info = await this.http.probe(item.url, item.headers);
                 item.totalSize = info.contentLength;
@@ -115,7 +113,6 @@ class DownloadManager extends events_1.EventEmitter {
                     item.savePath = path.join(path.dirname(item.savePath), info.filename);
                 }
             }
-            // Build or restore segments
             const resumeData = this.resumeManager.load(id);
             if (resumeData && item.resumable) {
                 item.segments = resumeData.segments;
@@ -160,16 +157,17 @@ class DownloadManager extends events_1.EventEmitter {
             this.emit('completed', item);
         }
         catch (err) {
-            if (item.status !== 'paused') {
+            // Read current status from map - it may have changed to 'paused' during the await
+            const latestStatus = this.downloads.get(id)?.status;
+            if (latestStatus !== 'paused') {
                 item.status = 'error';
-                item.errorMessage = err?.message ?? 'Unknown error';
+                item.errorMessage = err instanceof Error ? err.message : 'Unknown error';
                 this.emit('error', { item, error: err });
             }
         }
         finally {
             this.managers.delete(id);
             this.emit('updated', item);
-            // Start next queued item
             this.startNextQueued();
         }
     }
@@ -248,3 +246,4 @@ class DownloadManager extends events_1.EventEmitter {
     }
 }
 exports.DownloadManager = DownloadManager;
+//# sourceMappingURL=downloadManager.js.map

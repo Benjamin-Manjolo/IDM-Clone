@@ -47,7 +47,7 @@ class QueueManager extends events_1.EventEmitter {
         const q = this.queues.get(queueId);
         if (!q)
             return;
-        q.downloadIds = q.downloadIds.filter(id => id !== downloadId);
+        q.downloadIds = q.downloadIds.filter((id) => id !== downloadId);
         this.emit('queue-updated', q);
     }
     getQueue(id) {
@@ -66,3 +66,4 @@ class QueueManager extends events_1.EventEmitter {
     }
 }
 exports.QueueManager = QueueManager;
+//# sourceMappingURL=queueManager.js.map

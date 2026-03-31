@@ -28,3 +28,4 @@ function isMagnetUri(url) {
         return false;
     }
 }
+//# sourceMappingURL=magnet.js.map
