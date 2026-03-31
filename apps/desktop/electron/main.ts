@@ -4,6 +4,7 @@ import { setupDownloadIpc } from './ipc/download.ipc';
 import { setupQueueIpc } from './ipc/queue.ipc';
 import { setupSchedulerIpc } from './ipc/scheduler.ipc';
 import { setupSettingsIpc } from './ipc/settings.ipc';
+import { setupGrabberIpc } from './ipc/grabber.ipc';
 import { createTray } from './tray';
 import { createMenu } from './menu';
 import { setupUpdater } from './updater';
@@ -260,6 +261,7 @@ app.whenReady().then(() => {
   setupQueueIpc(ipcMain, queueManager);
   setupSchedulerIpc(ipcMain, scheduler, downloadManager);
   setupSettingsIpc(ipcMain, () => settings, (s) => { settings = s; saveSettings(s); });
+  setupGrabberIpc(ipcMain);
 
   // System dialogs
   ipcMain.handle(IPC_CHANNELS.DIALOG_OPEN_DIR, async () => {
