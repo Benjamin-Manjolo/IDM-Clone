@@ -12,6 +12,8 @@
     "contextMenus",
     "storage",
     "webRequest",
+    "webRequestBlocking",
+    "nativeMessaging",
     "notifications",
     "alarms"
   ],
