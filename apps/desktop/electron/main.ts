@@ -13,6 +13,7 @@ import type { AppSettings } from '@idm/shared';
 import { IPC_CHANNELS } from '@idm/shared';
 import * as fs from 'fs';
 import * as os from 'os';
+const { WebSocketServer } = require('ws');
 
 const isDev = process.env.NODE_ENV === 'development';
 const USER_DATA = app.getPath('userData');
@@ -130,6 +131,43 @@ app.whenReady().then(() => {
     maxConcurrent: settings.connection.maxConcurrentDownloads,
     globalSpeedLimit: settings.connection.globalSpeedLimit,
   });
+
+
+// Add this after downloadManager is initialized, inside app.whenReady()
+const wss = new WebSocketServer({ port: 9182 });
+const wsClients = new Set<any>();
+
+wss.on('connection', (ws) => {
+  wsClients.add(ws);
+  console.log('[IDM] Extension connected');
+
+  ws.on('message', (raw) => {
+    try {
+      const { type, data } = JSON.parse(raw.toString());
+      if (type === 'download:add') {
+        downloadManager.add({
+          url: data.url,
+          referrer: data.referrer,
+          savePath: settings.save.defaultDownloadDir,
+          maxConnections: settings.connection.maxConnections,
+        });
+      }
+    } catch {}
+  });
+
+  ws.on('close', () => wsClients.delete(ws));
+  ws.on('error', () => wsClients.delete(ws));
+});
+
+// Forward download events to all connected extensions
+downloadManager.on('added', (item) => {
+  const msg = JSON.stringify({ type: 'download:added', data: item });
+  wsClients.forEach(ws => ws.readyState === 1 && ws.send(msg));
+});
+downloadManager.on('progress', (item) => {
+  const msg = JSON.stringify({ type: 'download:progress', data: item });
+  wsClients.forEach(ws => ws.readyState === 1 && ws.send(msg));
+});
 
   queueManager = new QueueManager();
   scheduler = new Scheduler();
