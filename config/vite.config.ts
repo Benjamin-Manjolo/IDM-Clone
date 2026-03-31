@@ -2,29 +2,30 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// The desktop app is at apps/desktop — its node_modules has react installed.
-// This config lives in config/ so we need to tell Vite where to find
-// node_modules for the actual app.
 const DESKTOP = path.resolve(__dirname, '../apps/desktop');
 const ROOT    = path.resolve(__dirname, '..');
 
 export default defineConfig({
   plugins: [react()],
 
-  // Resolve node_modules from the desktop app (where react is installed)
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
     alias: {
-      '@idm/shared':       path.resolve(ROOT, 'packages/shared/src/index.ts'),
-      '@idm/downloader':   path.resolve(ROOT, 'packages/downloader/src/index.ts'),
-      '@idm/scheduler':    path.resolve(ROOT, 'packages/scheduler/src/index.ts'),
-      '@idm/video-grabber':path.resolve(ROOT, 'packages/video-grabber/src/index.ts'),
-      '@idm/site-grabber': path.resolve(ROOT, 'packages/site-grabber/src/index.ts'),
-      '@':                 path.resolve(DESKTOP, 'src'),
+      // shared types/constants are browser-safe — use source directly
+      '@idm/shared': path.resolve(ROOT, 'packages/shared/src/index.ts'),
+
+      // These packages contain Node.js-only code (fs, child_process, net…).
+      // Point them at thin browser-safe shims so the renderer never tries to
+      // bundle child_process, fs, net, worker_threads, etc.
+      '@idm/scheduler':    path.resolve(ROOT, 'packages/scheduler/src/browser-shim.ts'),
+      '@idm/downloader':   path.resolve(ROOT, 'packages/downloader/src/browser-shim.ts'),
+      '@idm/video-grabber':path.resolve(ROOT, 'packages/video-grabber/src/browser-shim.ts'),
+      '@idm/site-grabber': path.resolve(ROOT, 'packages/site-grabber/src/browser-shim.ts'),
+
+      '@': path.resolve(DESKTOP, 'src'),
     },
   },
 
-  // Tell Vite to look for node_modules in the desktop app directory too
   root: DESKTOP,
 
   build: {
@@ -44,5 +45,6 @@ export default defineConfig({
 
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+    exclude: ['electron'],
   },
 });

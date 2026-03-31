@@ -118,6 +118,91 @@ if (!tscOk) {
   log('fallback', `Copied .js files to ${OUT_DIR}`, C.g);
 }
 
+// ── Step 5: patch preload.js with a self-contained version ────────────────
+// The compiled preload.js uses require('@idm/shared') which fails at Electron
+// runtime because workspace aliases aren't real node_modules. Replace it with
+// a self-contained version that inlines the IPC constants.
+const preloadSrc = path.join(__dirname, 'preload.js'); // if you placed it next to dev.js
+const preloadFixed = path.join(OUT_DIR, 'preload.js');
+
+// Inline the fixed preload directly so dev.js is self-contained
+const PRELOAD_CONTENT = `"use strict";
+const { contextBridge, ipcRenderer } = require('electron');
+const IPC = {
+  DOWNLOAD_ADD:'download:add',DOWNLOAD_PAUSE:'download:pause',
+  DOWNLOAD_RESUME:'download:resume',DOWNLOAD_CANCEL:'download:cancel',
+  DOWNLOAD_REMOVE:'download:remove',DOWNLOAD_PROGRESS:'download:progress',
+  DOWNLOAD_LIST:'download:list',DOWNLOAD_OPEN:'download:open',
+  DOWNLOAD_OPEN_DIR:'download:open-dir',
+  QUEUE_LIST:'queue:list',QUEUE_CREATE:'queue:create',QUEUE_UPDATE:'queue:update',
+  QUEUE_DELETE:'queue:delete',QUEUE_START:'queue:start',QUEUE_STOP:'queue:stop',
+  QUEUE_STATS:'queue:stats',
+  SCHEDULER_LIST:'scheduler:list',SCHEDULER_CREATE:'scheduler:create',
+  SCHEDULER_UPDATE:'scheduler:update',SCHEDULER_DELETE:'scheduler:delete',
+  SCHEDULER_TOGGLE:'scheduler:toggle',
+  SETTINGS_GET:'settings:get',SETTINGS_SET:'settings:set',SETTINGS_RESET:'settings:reset',
+  DIALOG_OPEN_DIR:'dialog:open-dir',DIALOG_SAVE_FILE:'dialog:save-file',
+  SHELL_OPEN:'shell:open',APP_MINIMIZE:'app:minimize',APP_QUIT:'app:quit',
+  UPDATER_CHECK:'updater:check',
+};
+const ALLOWED=[IPC.DOWNLOAD_PROGRESS,'download:added','download:updated',
+  'download:completed','updater:checking','updater:available',
+  'updater:not-available','updater:error','updater:downloaded',
+  'ui:add-url','ui:pause-all','ui:resume-all','ui:nav',
+  'ui:about','ui:open-downloads','ui:add-batch'];
+const api={
+  download:{
+    add:(o)=>ipcRenderer.invoke(IPC.DOWNLOAD_ADD,o),
+    pause:(id)=>ipcRenderer.invoke(IPC.DOWNLOAD_PAUSE,id),
+    resume:(id)=>ipcRenderer.invoke(IPC.DOWNLOAD_RESUME,id),
+    cancel:(id)=>ipcRenderer.invoke(IPC.DOWNLOAD_CANCEL,id),
+    remove:(id,d)=>ipcRenderer.invoke(IPC.DOWNLOAD_REMOVE,id,d),
+    list:()=>ipcRenderer.invoke(IPC.DOWNLOAD_LIST),
+    open:(id)=>ipcRenderer.invoke(IPC.DOWNLOAD_OPEN,id),
+    openDir:(id)=>ipcRenderer.invoke(IPC.DOWNLOAD_OPEN_DIR,id),
+  },
+  queue:{
+    list:()=>ipcRenderer.invoke(IPC.QUEUE_LIST),
+    create:(n,o)=>ipcRenderer.invoke(IPC.QUEUE_CREATE,n,o),
+    update:(id,u)=>ipcRenderer.invoke(IPC.QUEUE_UPDATE,id,u),
+    delete:(id)=>ipcRenderer.invoke(IPC.QUEUE_DELETE,id),
+    start:(id)=>ipcRenderer.invoke(IPC.QUEUE_START,id),
+    stop:(id)=>ipcRenderer.invoke(IPC.QUEUE_STOP,id),
+    stats:()=>ipcRenderer.invoke(IPC.QUEUE_STATS),
+  },
+  scheduler:{
+    list:()=>ipcRenderer.invoke(IPC.SCHEDULER_LIST),
+    create:(t)=>ipcRenderer.invoke(IPC.SCHEDULER_CREATE,t),
+    update:(id,u)=>ipcRenderer.invoke(IPC.SCHEDULER_UPDATE,id,u),
+    delete:(id)=>ipcRenderer.invoke(IPC.SCHEDULER_DELETE,id),
+    toggle:(id)=>ipcRenderer.invoke(IPC.SCHEDULER_TOGGLE,id),
+  },
+  settings:{
+    get:()=>ipcRenderer.invoke(IPC.SETTINGS_GET),
+    set:(s)=>ipcRenderer.invoke(IPC.SETTINGS_SET,s),
+    reset:()=>ipcRenderer.invoke(IPC.SETTINGS_RESET),
+  },
+  system:{
+    openDir:()=>ipcRenderer.invoke(IPC.DIALOG_OPEN_DIR),
+    saveFile:(p)=>ipcRenderer.invoke(IPC.DIALOG_SAVE_FILE,p),
+    openPath:(p)=>ipcRenderer.invoke(IPC.SHELL_OPEN,p),
+    minimize:()=>ipcRenderer.send(IPC.APP_MINIMIZE),
+    quit:()=>ipcRenderer.send(IPC.APP_QUIT),
+    checkUpdate:()=>ipcRenderer.invoke(IPC.UPDATER_CHECK),
+  },
+  on:(channel,cb)=>{
+    if(!ALLOWED.includes(channel))return()=>{};
+    const w=(_e,...a)=>cb(...a);
+    ipcRenderer.on(channel,w);
+    return()=>ipcRenderer.removeListener(channel,w);
+  },
+};
+contextBridge.exposeInMainWorld('idm',api);
+`;
+
+fs.writeFileSync(preloadFixed, PRELOAD_CONTENT, 'utf8');
+log('preload', `Patched self-contained preload.js → ${preloadFixed}`, C.g);
+
 // ── Step 5: verify main.js and preload.js exist ───────────────────────────
 const mainJs    = path.join(OUT_DIR, 'main.js');
 const preloadJs = path.join(OUT_DIR, 'preload.js');
@@ -133,7 +218,24 @@ if (!fs.existsSync(preloadJs)) {
 log('check', `main.js    ✓  ${mainJs}`, C.g);
 log('check', `preload.js ✓  ${preloadJs}`, C.g);
 
-// ── Step 6: start Vite ────────────────────────────────────────────────────
+// ── Step 6: patch main.js to force-open DevTools in dev mode ──────────────
+try {
+  let mainContent = fs.readFileSync(mainJs, 'utf8');
+  if (!mainContent.includes('openDevTools') || !mainContent.includes('FORCED_DEVTOOLS')) {
+    // Insert openDevTools() right after win.loadURL in dev mode
+    mainContent = mainContent.replace(
+      /win\.loadURL\('http:\/\/localhost:5173'\);/,
+      `win.loadURL('http://localhost:5173'); // FORCED_DEVTOOLS
+    win.webContents.on('did-finish-load', () => { win.webContents.openDevTools(); });`
+    );
+    fs.writeFileSync(mainJs, mainContent, 'utf8');
+    log('devtools', 'Patched main.js to auto-open DevTools', C.g);
+  }
+} catch (e) {
+  log('devtools', 'Could not patch DevTools – check manually: Ctrl+Shift+I', C.y);
+}
+
+
 log('vite', 'Starting Vite dev server…', C.c);
 const vite = spawn(
   'npx', ['vite', '--config', VITE_CFG, '--port', '5173', '--force'],
@@ -172,7 +274,7 @@ waitForVite().then(() => {
       cwd: APP,
       stdio: 'inherit',
       shell: true,
-      env: { ...process.env, NODE_ENV: 'development', ELECTRON_DISABLE_SANDBOX: '1' },
+      env: { ...process.env, NODE_ENV: 'development', ELECTRON_DISABLE_SANDBOX: '1', ELECTRON_OPEN_DEVTOOLS: '1' },
     }
   );
   electron.on('close', code => {
