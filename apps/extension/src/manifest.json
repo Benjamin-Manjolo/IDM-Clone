@@ -12,6 +12,8 @@
     "contextMenus",
     "storage",
     "webRequest",
+    "webRequestBlocking",
+    "nativeMessaging",
     "notifications",
     "alarms"
   ],
@@ -36,24 +38,6 @@
 
   "action": {
     "default_popup": "popup.html",
-    "default_title": "IDM Clone",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
-  },
-
-  "web_accessible_resources": [
-    {
-      "resources": ["icon16.png", "icon48.png", "icon128.png"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-
-  "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "default_title": "IDM Clone"
   }
 }

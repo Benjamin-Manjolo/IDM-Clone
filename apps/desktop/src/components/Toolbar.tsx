@@ -6,6 +6,7 @@ import type { AddDownloadOptions } from '@idm/shared';
 interface ToolbarProps {
   stats: { total: number; active: number; completed: number; speed: number };
   onAdd: (opts: AddDownloadOptions) => void;
+  onAddBatch: (urls: string[], referrer?: string) => void;
   onPauseAll: () => void;
   onResumeAll: () => void;
   searchQuery: string;
@@ -71,9 +72,10 @@ const Sep = () => (
 );
 
 export const Toolbar: React.FC<ToolbarProps> = ({
-  stats, onAdd, onPauseAll, onResumeAll, searchQuery, onSearch,
+  stats, onAdd, onAddBatch, onPauseAll, onResumeAll, searchQuery, onSearch,
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   useEffect(() => {
     const off1 = window.idm?.on('ui:add-url', () => setShowModal(true));
@@ -86,7 +88,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     <>
       <div style={tb}>
         <TbBtn icon="⊕" label="Add URL" onClick={() => setShowModal(true)} primary />
-        <TbBtn icon="⊞" label="Add Batch" onClick={() => {}} />
+        <TbBtn icon="⊞" label="Add Batch" onClick={() => setShowBatchModal(true)} />
         <Sep />
         <TbBtn icon="▶" label="Resume" onClick={onResumeAll} />
         <TbBtn icon="⏹" label="Stop All" onClick={onPauseAll} disabled={stats.active === 0} />
@@ -132,6 +134,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <AddUrlModal
           onAdd={opts => { onAdd(opts); setShowModal(false); }}
           onClose={() => setShowModal(false)}
+        />
+      )}
+      {showBatchModal && (
+        <AddBatchModal
+          onAddBatch={(urls) => { onAddBatch(urls); setShowBatchModal(false); }}
+          onClose={() => setShowBatchModal(false)}
         />
       )}
     </>
@@ -259,6 +267,46 @@ const AddUrlModal: React.FC<{ onAdd: (opts: AddDownloadOptions) => void; onClose
             style={{ padding: '8px 18px', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: valid ? 'pointer' : 'not-allowed', background: valid ? 'var(--accent)' : 'var(--bg-card)', color: '#fff', border: 'none', fontFamily: 'var(--sans)', opacity: valid ? 1 : 0.5, boxShadow: valid ? '0 0 20px rgba(14,165,233,0.3)' : 'none' }}
           >
             Start Download
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AddBatchModal: React.FC<{
+  onAddBatch: (urls: string[]) => void;
+  onClose: () => void;
+}> = ({ onAddBatch, onClose }) => {
+  const [text, setText] = useState('');
+
+  const urls = text
+    .split(/\r?\n/)
+    .map((u) => u.trim())
+    .filter((u) => isValidUrl(u));
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+      <div style={{ width: 620, background: 'var(--bg-panel)', border: '1px solid var(--border-bright)', borderRadius: 8 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 700 }}>⊞ Add Batch Downloads</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ padding: 16 }}>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={'Paste one URL per line'}
+            style={{ width: '100%', minHeight: 220, borderRadius: 6, background: 'var(--bg-deep)', color: 'var(--text-primary)', border: '1px solid var(--border-bright)', padding: 10, fontFamily: 'var(--mono)', fontSize: 12 }}
+          />
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+            Valid URLs detected: <b>{urls.length}</b>
+          </div>
+        </div>
+        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px' }}>Cancel</button>
+          <button disabled={urls.length === 0} onClick={() => onAddBatch(urls)} style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, opacity: urls.length ? 1 : 0.5 }}>
+            Add {urls.length} Downloads
           </button>
         </div>
       </div>

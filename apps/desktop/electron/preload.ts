@@ -90,6 +90,17 @@ const api = {
                    ipcRenderer.invoke(IPC_CHANNELS.UPDATER_CHECK),
   },
 
+  // ── Site Grabber ───────────────────────────────────────────────────────────
+  grabber: {
+    start: (args: {
+      url: string;
+      maxDepth?: number;
+      stayOnDomain?: boolean;
+      includeExt?: string;
+      excludeExt?: string;
+    }) => ipcRenderer.invoke('grabber:start', args),
+  },
+
   // ── Event listeners ────────────────────────────────────────────────────────
   on: (channel: string, cb: (...args: unknown[]) => void): (() => void) => {
     const ALLOWED_CHANNELS = new Set([
@@ -109,6 +120,8 @@ const api = {
       'ui:nav',
       'ui:about',
       'ui:open-downloads',
+      'grabber:progress',
+      'grabber:found',
     ]);
 
     if (!ALLOWED_CHANNELS.has(channel)) return () => { /* noop */ };
