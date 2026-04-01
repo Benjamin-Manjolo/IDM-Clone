@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev":   "vite build --watch --config vite.extension.config.ts",
-    "build": "vite build --config vite.extension.config.ts && node -e \"const fs=require('fs');const b64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Zc4QAAAAASUVORK5CYII=';const png=Buffer.from(b64,'base64');fs.copyFileSync('src/manifest.json','dist/manifest.json');fs.copyFileSync('src/popup/popup.html','dist/popup.html');for(const n of ['icon16.png','icon48.png','icon128.png']) fs.writeFileSync('dist/'+n,png);\""
+    "build": "vite build --config vite.extension.config.ts && node -e \"const fs=require('fs');fs.copyFileSync('src/manifest.json','dist/manifest.json');fs.copyFileSync('src/popup/popup.html','dist/popup.html');\""
   },
   "dependencies": {
     "@idm/shared": "workspace:*",
