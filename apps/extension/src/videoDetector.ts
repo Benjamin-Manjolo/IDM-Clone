@@ -59,6 +59,8 @@ const MANIFEST_PATTERNS = [
   /\.m3u8(\?.*)?$/i,
   /\.mpd(\?.*)?$/i,
   /manifest(\.m3u8|\.mpd)?(\?.*)?$/i,
+  /\/api\/manifest\/dash\//i,
+  /mime=application%2Fdash\+xml/i,
   /playlist(\.m3u8)?(\?.*)?$/i,
   /\/hls\//i,
   /\/dash\//i,
@@ -311,6 +313,8 @@ function handleRequest(url: string, tabId: number, mimeType?: string, fileSize?:
     // For HLS manifests, fetch and parse them to extract quality variants
     if (isManifest && type === 'hls') {
       fetchAndParseM3U8(url, tabId, video);
+    } else if (isManifest && type === 'dash') {
+      fetchAndParseMPD(url, tabId, video);
     }
 
     emit(video);
@@ -374,6 +378,53 @@ async function fetchAndParseM3U8(manifestUrl: string, tabId: number, video: Dete
     }
   } catch {
     // Silent fail — network errors are expected
+  }
+}
+
+// ── DASH MPD quick-parse for quality extraction ──────────────────────────────
+async function fetchAndParseMPD(manifestUrl: string, tabId: number, _video: DetectedVideo): Promise<void> {
+  try {
+    const resp = await fetch(manifestUrl, { credentials: 'include' });
+    if (!resp.ok) return;
+    const xml = await resp.text();
+
+    const variants: VideoQuality[] = [];
+    const reps = [...xml.matchAll(/<Representation([^>]*)>/g)];
+    for (const m of reps) {
+      const tag = m[1] ?? '';
+      const id = tag.match(/id="([^"]+)"/)?.[1];
+      const bw = parseInt(tag.match(/bandwidth="(\d+)"/)?.[1] ?? '0', 10);
+      const width = parseInt(tag.match(/width="(\d+)"/)?.[1] ?? '0', 10) || undefined;
+      const height = parseInt(tag.match(/height="(\d+)"/)?.[1] ?? '0', 10) || undefined;
+      const codecs = tag.match(/codecs="([^"]+)"/)?.[1];
+      const mimeType = tag.match(/mimeType="([^"]+)"/)?.[1] ?? 'video/mp4';
+      const isAudioOnly = mimeType.startsWith('audio/');
+
+      variants.push({
+        label: isAudioOnly ? `Audio ${formatBitrate(bw)}` : buildQualityLabel(width, height, bw),
+        url: manifestUrl,
+        bandwidth: bw || undefined,
+        width,
+        height,
+        mimeType,
+        isAudioOnly,
+        isVideoOnly: !isAudioOnly,
+        container: mimeType.includes('webm') ? 'webm' : 'mp4',
+      });
+      // avoid overwhelming menu on very large manifests
+      if (variants.length >= 40) break;
+      if (!id && !bw && !width && !height && !codecs) continue;
+    }
+
+    if (variants.length > 0) {
+      const dedup = new Map<string, VideoQuality>();
+      for (const v of variants) dedup.set(`${v.label}:${v.mimeType}:${v.isAudioOnly ? 'a' : 'v'}`, v);
+      const sorted = [...dedup.values()].sort((a, b) => (b.height ?? b.bandwidth ?? 0) - (a.height ?? a.bandwidth ?? 0));
+      const updated = upsertVideo(tabId, manifestUrl, { qualities: sorted });
+      emit(updated);
+    }
+  } catch {
+    // ignore parse/network errors
   }
 }
 
