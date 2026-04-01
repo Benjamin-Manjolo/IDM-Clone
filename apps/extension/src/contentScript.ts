@@ -15,7 +15,7 @@ import type { DetectedVideo, VideoQuality } from './videoDetector';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // Map video element → its badge element
-const videoBadges = new WeakMap<HTMLVideoElement, HTMLElement>();
+const videoBadges = new Map<HTMLVideoElement, HTMLElement>();
 // Currently detected videos (keyed by URL)
 const detectedVideos = new Map<string, DetectedVideo>();
 // Currently open quality menu
@@ -266,14 +266,23 @@ function toggleQualityMenu(badge: HTMLElement, video: DetectedVideo): void {
     return;
   }
 
-  const menu = buildQualityMenu(video, badge);
-  badge.appendChild(menu);
-  openQualityMenu = menu;
+  // Ask background for freshest qualities before opening the menu.
+  chrome.runtime.sendMessage({ type: 'badge:request-qualities', url: video.url }, (res) => {
+    const resolved: DetectedVideo = (res?.video as DetectedVideo | undefined) ?? {
+      ...video,
+      qualities: (res?.qualities as VideoQuality[] | undefined) ?? video.qualities,
+    };
+    detectedVideos.set(resolved.url, resolved);
 
-  // Close on outside click
-  setTimeout(() => {
-    document.addEventListener('click', closeQualityMenuHandler, { once: true, capture: true });
-  }, 0);
+    const menu = buildQualityMenu(resolved, badge);
+    badge.appendChild(menu);
+    openQualityMenu = menu;
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', closeQualityMenuHandler, { once: true, capture: true });
+    }, 0);
+  });
 }
 
 function closeQualityMenuHandler(e: Event): void {
