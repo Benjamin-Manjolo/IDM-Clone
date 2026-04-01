@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { isValidUrl } from '../utils/file';
 import { useDownload } from '../hooks/useDownload';
 
@@ -20,6 +20,17 @@ export const Grabber: React.FC = () => {
   const [pagesVisited, setPagesVisited] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const offProgress = window.idm.on('grabber:progress', (evt: any) => {
+      if (evt?.pagesVisited != null) setPagesVisited(evt.pagesVisited);
+      if (evt?.pageUrl) appendLog(`Visited: ${evt.pageUrl} (depth ${evt.depth}, found ${evt.found})`);
+    });
+    const offFound = window.idm.on('grabber:found', (evt: any) => {
+      if (evt?.url) appendLog(`Found downloadable URL: ${evt.url}`);
+    });
+    return () => { offProgress(); offFound(); };
+  }, []);
+
   const appendLog = (msg: string) => {
     setLog(l => [...l.slice(-99), msg]);
     setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }), 50);
@@ -35,27 +46,18 @@ export const Grabber: React.FC = () => {
     appendLog(`Max depth: ${maxDepth} | Stay on domain: ${stayOnDomain}`);
 
     try {
-      // We call the downloader through the IPC bridge.
-      // In production, the main process runs the actual Crawler — here we simulate progress.
-      // Integrate window.idm.grabber.start() once the IPC handler is added.
-      appendLog('Crawling... (connect to main process grabber IPC for real results)');
-
-      // Simulate found files for demo
-      await new Promise(r => setTimeout(r, 800));
-      const demo: GrabResult[] = [
-        { url: `${siteUrl.replace(/\/$/, '')}/file1.zip`, selected: true },
-        { url: `${siteUrl.replace(/\/$/, '')}/video.mp4`, selected: true },
-        { url: `${siteUrl.replace(/\/$/, '')}/docs/manual.pdf`, selected: false },
-      ].filter(f => {
-        const ext = f.url.split('.').pop()?.toLowerCase() ?? '';
-        if (includeExt.trim()) return includeExt.split(',').map(e => e.trim()).includes(ext);
-        if (excludeExt.trim()) return !excludeExt.split(',').map(e => e.trim()).includes(ext);
-        return true;
+      appendLog('Crawling with main-process site grabber...');
+      const res = await window.idm.grabber.start({
+        url: siteUrl,
+        maxDepth,
+        stayOnDomain,
+        includeExt,
+        excludeExt,
       });
-
-      setResults(demo);
-      setPagesVisited(3);
-      appendLog(`Crawl complete. ${demo.length} files found across 3 pages.`);
+      const found: GrabResult[] = (res?.urls ?? []).map((url: string) => ({ url, selected: true }));
+      setResults(found);
+      setPagesVisited(res?.pagesVisited ?? 0);
+      appendLog(`Crawl complete. ${found.length} files found across ${res?.pagesVisited ?? 0} pages.`);
     } catch (err: any) {
       appendLog(`Error: ${err.message}`);
     } finally {

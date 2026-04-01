@@ -1,11 +1,13 @@
 /**
  * messaging/bridge.ts
  *
- * WebSocket bridge between the browser extension and the IDM Clone desktop app.
- * Implements auto-reconnect with exponential backoff.
+ * Hybrid bridge:
+ * 1) Preferred: Chrome Native Messaging host (desktop-native integration)
+ * 2) Fallback: local WebSocket bridge (dev / legacy mode)
  */
 
 const DESKTOP_WS_PORT = 9182;
+const NATIVE_HOST_NAME = 'com.idm.clone.host';
 const RECONNECT_DELAY_BASE = 2000;
 const RECONNECT_DELAY_MAX = 30_000;
 const PING_INTERVAL = 15_000;
@@ -13,6 +15,7 @@ const PING_INTERVAL = 15_000;
 type BridgeListener = (data: unknown) => void;
 
 export class DesktopBridge {
+  private nativePort: chrome.runtime.Port | null = null;
   private ws: WebSocket | null = null;
   private listeners = new Map<string, BridgeListener[]>();
   private queue: string[] = [];
@@ -23,6 +26,36 @@ export class DesktopBridge {
 
   connect(): void {
     if (this.destroyed) return;
+    // Try Native Messaging first (IDM-like architecture).
+    this.connectNative();
+    // Keep WS bridge as compatibility transport for desktop event streaming.
+    this.connectWebSocket();
+  }
+
+  private connectNative(): boolean {
+    try {
+      this.nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+      this.nativePort.onMessage.addListener((msg: any) => {
+        const { type, data } = msg ?? {};
+        if (typeof type === 'string') this.emit(type, data);
+      });
+      this.nativePort.onDisconnect.addListener(() => {
+        this.nativePort = null;
+        this.emit('disconnected', null);
+        if (!this.destroyed) this.scheduleReconnect();
+      });
+
+      this.reconnectAttempts = 0;
+      this.flushQueue((payload) => this.nativePort?.postMessage(payload));
+      this.emit('connected', { transport: 'native' });
+      return true;
+    } catch {
+      this.nativePort = null;
+      return false;
+    }
+  }
+
+  private connectWebSocket(): void {
     try {
       this.ws = new WebSocket(`ws://localhost:${DESKTOP_WS_PORT}`);
 
@@ -30,11 +63,7 @@ export class DesktopBridge {
         this.reconnectAttempts = 0;
         console.log('[IDM Bridge] Connected to desktop app');
 
-        // Flush queued messages
-        const pending = this.queue.splice(0);
-        for (const msg of pending) {
-          this.ws?.send(msg);
-        }
+        this.flushQueue((payload) => this.ws?.send(JSON.stringify(payload)));
 
         // Start heartbeat
         this.pingTimer = setInterval(() => {
@@ -71,13 +100,23 @@ export class DesktopBridge {
   }
 
   send(type: string, data: unknown): void {
-    const msg = JSON.stringify({ type, data });
+    const payload = { type, data };
+    let sent = false;
+    if (this.nativePort) {
+      try {
+        this.nativePort.postMessage(payload);
+        sent = true;
+      } catch {
+        this.nativePort = null;
+      }
+    }
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(msg);
+      this.ws.send(JSON.stringify(payload));
+      sent = true;
     } else {
       // Queue up to 100 messages to avoid memory leak
-      if (this.queue.length < 100) {
-        this.queue.push(msg);
+      if (!sent && this.queue.length < 100) {
+        this.queue.push(JSON.stringify(payload));
       }
     }
   }
@@ -98,6 +137,8 @@ export class DesktopBridge {
   destroy(): void {
     this.destroyed = true;
     this.clearPing();
+    this.nativePort?.disconnect();
+    this.nativePort = null;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
@@ -114,6 +155,13 @@ export class DesktopBridge {
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
+    }
+  }
+
+  private flushQueue(sender: (payload: any) => void): void {
+    const pending = this.queue.splice(0);
+    for (const raw of pending) {
+      try { sender(JSON.parse(raw)); } catch {}
     }
   }
 
